@@ -18,5 +18,5 @@ Executable kmx
     Main-Is:         Kmx.hs
     Hs-Source-Dirs:  src
     Other-Modules:   Correlate Entropy FreqCount Kmers Options Serialize Filter
-    Build-Depends:   base >= 4 && < 5, judy >= 0.2.5, vector, bytestring, time, biocore, biofastq, biofasta, cmdargs, array
+    Build-Depends:   base >= 4 && < 5, judy == 0.2.5, vector, bytestring, time, biocore, biofastq, biofasta, cmdargs, array
     Ghc-Options: -Wall -O2
