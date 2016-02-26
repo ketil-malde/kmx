@@ -2,6 +2,7 @@
 
 module Serialize where
 
+import Filter (combineKvs)
 import FreqCount
 import Options
 
@@ -13,28 +14,45 @@ import Data.Char (ord)
 
 addmagic :: Int ->  B.ByteString -> B.ByteString
 addmagic k = B.append (B.pack (map (fromIntegral . ord) "kmx:" ++ [fromIntegral k]))
-                                                         
+
 getmagic :: B.ByteString -> (Int,B.ByteString)
 getmagic b = let (ks,rest) = B.splitAt 5 b
              in if B.take 4 ks == BC.pack "kmx:" then (fromIntegral $ last $ B.unpack ks ,rest)
                 else error ("Wrong magic number - expected \"kmx:\", but got "++show (BC.take 4 ks)
                             ++"\nThis does not look like a valid kmx index file.")
 
-readIndex :: Options -> IO (Int,B.ByteString)
-readIndex opts = getmagic `fmap` case indices opts of 
-  [] -> B.getContents 
-  ["-"] -> B.getContents   
-  [f] -> B.readFile f
-  _ -> error ("Multiple indices specified, but we only want one:\n\t"++show (indices opts))
+type Index = (Int,[(Word,Int)]) -- k and a list of key/value pairs
 
-readIndices :: Options -> IO [(Int,B.ByteString)]
-readIndices opts = if null (indices opts) || indices opts == ["-"] 
-                   then (return . getmagic) `fmap` B.getContents 
-                   else mapM (\x -> getmagic `fmap` B.readFile x) (indices opts)
+-- | readIndex reads an index from a single input file or standard input if no file is specified
+--   If a k-value is specified in the options (and the index is built with a larger k) it
+--   combines k-mer counts to calculate counts (approximately) using the shorter k-value.
+readIndex :: Options -> IO Index
+readIndex opts = do
+  str <- case indices opts of
+          [] -> B.getContents
+          ["-"] -> B.getContents
+          [f] -> B.readFile f
+          _ -> error ("Multiple indices specified, but we only want one:\n\t"++show (indices opts))
+  case opts of
+   Verify {} -> let (k,s) = getmagic str in return (k `div` 2,unpackPairs s) -- verify doesn't have the k option
+   _ -> return (parse1idx opts str)
+
+readIndices :: Options -> IO [Index]
+readIndices opts = if length (indices opts) <= 1 then do {c <- readIndex opts; return [c] }
+                   else mapM (\f -> parse1idx opts `fmap` B.readFile f) (indices opts)
+
+parse1idx :: Options -> B.ByteString -> Index
+parse1idx opts inp = do
+  let (bits,str) = getmagic inp
+      k = bits `div` 2
+      idx = unpackPairs str
+  case kval opts of
+   0 -> (k,idx)
+   myk -> if myk <= k && myk > 0 then (myk, combineKvs (fromIntegral myk) idx)
+          else error ("Illegal kmer value '"++show myk++"', must be less than "++show k++".")
 
 toByteString :: FreqCount -> IO B.ByteString
-toByteString f = do
-  (addmagic (key_bits f)) `fmap` packPairs `fmap` assocs f
+toByteString f = (addmagic (key_bits f)) `fmap` packPairs `fmap` assocs f
 
 mapM' :: (a -> IO b) -> [a] -> IO [b]
 mapM' fn = sequence' . map fn

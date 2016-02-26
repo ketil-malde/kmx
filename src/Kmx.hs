@@ -52,25 +52,18 @@ hist :: Options -> IO ()
 hist opts = do
   let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . fst) else id)
                   . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . fst) else id)
-  (bits,str) <- readIndex opts
-  let k = fromIntegral (bits `div` 2)
-      myk = fromIntegral (kval opts)
-      kvs' = Serialize.unpackPairs str
-      kvs = case kval opts of
-        0 -> kvs'
-        _ -> if myk <= k && myk > 0 then combineKvs (fromIntegral myk) kvs'
-             else error ("Illegal kmer value '"++show myk++"', must be less than "++show k++".")
+  (k,kvs) <- readIndex opts
   if complexity_classes opts > 0
     then do
       counters <- replicateM (complexity_classes opts) (mk_judy 16)
       let sel_counter (x:xs@(_:_)) e = if e <= 0.0 then x else sel_counter xs (e-step)
           sel_counter [x] _ = x
           step = max_entropy / fromIntegral (complexity_classes opts)
-          ent = case complexity_mersize opts of
-            1 -> return . entropy k
-            2 -> entropy2 k
-            n -> entropyN n k
-          max_entropy = let x = 4.0**fromIntegral  (complexity_mersize opts) in negate x * 1/x * log (1/x) / log 2 -- uh, -1 * log(1/x)/log 2? = log_2 1/x
+          ent = let k' = fromIntegral k in case complexity_mersize opts of
+            1 -> return . entropy k'
+            2 -> entropy2 k'
+            n -> entropyN n k'
+          max_entropy = let x = 4.0**fromIntegral  (complexity_mersize opts) in negate x * 1/x * log (1/x) / log 2 -- uh, -1 * log(1/x)/log 2? = log_2 1/x = -log_2 x ?
       let cnt (hash,occurs) = do
             e <- ent hash
             let c0 = sel_counter counters e
@@ -97,7 +90,7 @@ heatmap opts =   case indices opts of
                                    , max (mincount opts) (min y (maxcount opts)))
                           v <- readArray a ix
                           writeArray a ix (v+1)
-    mapM_ (update . snd) $ merge2With (,) (Serialize.unpackPairs str1) (Serialize.unpackPairs str2)
+    mapM_ (update . snd) $ merge2With (,) str1 str2
     -- Generate output
     let format ((x,y),v) = show x++" "++show y++" "++show v
         intersperseAt n xs = case splitAt n xs of
@@ -110,10 +103,9 @@ heatmap opts =   case indices opts of
 -- | Check that a count index file is consistent
 verify :: Options -> IO ()
 verify opts = do
-  (bits,str) <- readIndex opts
-  putStrLn ("KMX Index: k="++show (bits `div` 2)++" ("++show bits++" bits)")
-  let k = bits `div` 2
-      limit = 4^k-1
+  (k,str) <- readIndex opts
+  putStrLn ("KMX Index: k="++show k++" ("++show (k*2)++" bits)")
+  let limit = 4^k-1
       check ((k1,_v1):(k2,v2):rest)
         | k1 < 0 || k1 > limit = error ("KMX Index: key out of range: "++show k1)
         | k2 <= k1             = error ("KMX Index: wrapped! "++show k1++" -> "++show k2)
@@ -122,25 +114,19 @@ verify opts = do
         | k1 < 0 || k1 > limit = error ("KMX Index: key out of range: "++show k1)
         | otherwise            = putStrLn "KMX Index: OK"
       check [] = putStrLn "KMX Index: OK"
-  check $ Serialize.unpackPairs str
+  check str
 
 -- | Exctract k-mers and counts for specific k-mers and/or limited frequency counts
 dump :: Options -> IO ()
 dump opts = do
-  bits_str <- readIndex opts
-  let k = fromIntegral (fst bits_str `div` 2)
-      myk = fromIntegral (kval opts)
-      curk = if myk == 0 then k else myk
-      showPair (w,v) = ((if hashes opts then (show w ++ "\t" ++ show v) else (unkmer curk w ++ "\t"++show v))
-                        ++if complexity opts then "\t"++printf "%.3f\t%.3f\t%.3f" (entropy curk w) (unsafePerformIO $ entropy2 curk w) (unsafePerformIO $ entropyN 3 curk w) else "")
+  (k',idx) <- readIndex opts
+  let k = fromIntegral k'
+      showPair (w,v) = ((if hashes opts then (show w ++ "\t" ++ show v) else (unkmer k w ++ "\t"++show v))
+                        ++if complexity opts then "\t"++printf "%.3f\t%.3f\t%.3f" (entropy k w) (unsafePerformIO $ entropy2 k w) (unsafePerformIO $ entropyN 3 k w) else "")
       my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . snd) else id) 
                   . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . snd) else id)
-      header = "# k="++show curk
-      kvs' = Serialize.unpackPairs (snd bits_str)
-      kvs | myk == 0  = kvs'
-          | otherwise = if myk <= k && myk > 0 then combineKvs (fromIntegral myk) kvs'
-                        else error ("Illegal kmer value '"++show myk++"', must be less than "++show k++".")
-  genOutput opts $ unlines $ (header:) $ map showPair $ my_filter kvs
+      header = "# k="++show k
+  genOutput opts $ unlines $ (header:) $ map showPair $ my_filter idx
 
 -- | Compare k-mer counts between two or more indexes/files
 corr :: Options -> IO ()
