@@ -11,16 +11,16 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , filter_bits :: Int, filter_value :: Word
                      , files :: [FilePath], output :: FilePath }
              | Hist  { indices :: [FilePath], output :: FilePath
-                     , kval, mincount, maxcount :: Int 
+                     , kval, mincount, maxcount :: Int
                      , complexity_classes, complexity_mersize :: Int
                      }
              | Correlate { indices :: [FilePath]
+                         , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
                          }
              | Verify { indices :: [FilePath] }
              | Dump { indices :: [FilePath], output :: FilePath
-                    , kval :: Int
-                    , mincount, maxcount :: Int
+                    , kval, mincount, maxcount :: Int
                     , hashes :: Bool
                     , complexity :: Bool }
              | Merge { indices :: [FilePath]
@@ -29,8 +29,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      }
              | Heatmap { indices :: [FilePath]
                        , output :: FilePath
-                       -- , bucketsize :: Int
-                       , maxcov1, maxcov2 :: Int
+                       , kval, mincount, maxcount :: Int
                        }
              deriving (Typeable,Data)
 
@@ -63,7 +62,10 @@ def_verify = Verify { indices = [] &= typFile &= args }
              &= details ["Verify the correctness of a count index."]
 
 def_corr :: Options
-def_corr = Correlate { indices = [] &= args &= typFile 
+def_corr = Correlate { indices = [] &= args &= typFile
+                     , kval = 0 &= help "k-mer size to reduce to"
+                     , mincount = 0 &= help "minimum count to include"
+                     , maxcount = 0 &= help "maximum count to include"
                      , sqrt_transform = False &= help "sqrt-transform data points"
                      }
            &= details ["Calculate the correlation coefficient (Pearson's r) between k-mer frequencies,"
@@ -72,24 +74,24 @@ def_corr = Correlate { indices = [] &= args &= typFile
 def_heatmap :: Options
 def_heatmap = Heatmap { indices = [] &= args &= typFile
                       , output =  "" &= typFile &= help "Output file"
-                      -- , bucketsize = 1 &= help "bucket size for frequency tally."
-                      , maxcov1 = 200 &= help "maximum coverage to count for input file 1"
-                      , maxcov2 = 200 &= help "maximum coverage to count for input file 1"
+                      , kval = 0 &= help "k-mer size to reduce to"
+                      , mincount = 0 &= help "minimum count to include"
+                      , maxcount = 200 &= help "maximum count to include"
                       }
               &= details ["Construct heatmap data for correlation of k-mers in two files."]
 
 def_dump :: Options
 def_dump = Dump { indices = [] &= args &= typFile
-                , kval = 0 &= help "k-mer size to reduce to"
                 , output =  "" &= typFile &= help "Output file"
+                , kval = 0 &= help "k-mer size to reduce to"
                 , mincount = 0 &= help "minimum count to include"
-                , maxcount = 0 &= help "maximum count to include" 
+                , maxcount = 0 &= help "maximum count to include"
                 , hashes = False &= help "output k-mers as raw hash values instead of text"
                 , complexity = False &= help "also output k-mer complexity (entropy)"
                 }
            &= details ["Dump the contents of a count index."]
 
-def_merge :: Options 
+def_merge :: Options
 def_merge = Merge { indices = [] &= args &= typFile
                 , output =  "" &= typFile &= help "Output file"
                 } &= details ["Merge two or more indices."]
@@ -100,7 +102,7 @@ getArgs = checkopts `fmap` (cmdArgsRun $ cmdArgsMode $ modes [def_count, def_his
   &= program "kmx")
 
 checkopts :: Options -> Options
-checkopts opts@(Verify {}) 
+checkopts opts@(Verify {})
   | otherwise        = opts
 checkopts opts@(Correlate {})
   | length (indices opts) /= 2 = error "Correlate takes exactly two index files as parameters."
@@ -108,7 +110,7 @@ checkopts opts@(Correlate {})
 checkopts opts = opts
 
 genOutput :: Options -> String -> IO ()
-genOutput opts = case output opts of 
+genOutput opts = case output opts of
   "" -> putStr
   "-" -> putStr
   f -> writeFile f

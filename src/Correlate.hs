@@ -9,7 +9,7 @@ import Data.List (foldl')
 
 -- merge key-value pairs, make a row for each minimum value
 merge :: (Ord k, Num v) => [[(k,v)]] -> [(k,[v])]
-merge kvs = if and (map null kvs) then []
+merge kvs = if all null kvs then []
             else let kmin = minimum $ map (fst . head) $ filter (not . null) kvs
                      (this,rest) = go kmin [] [] kvs
                      go i ac1 ac2 (((k,v):ks):kks)
@@ -20,8 +20,8 @@ merge kvs = if and (map null kvs) then []
                  in (kmin,this) : merge rest
 
 -- Deprecated version of mergeWith, it is slower than the one below
-mergeWith' :: (Ord k, Num a) => (a -> a -> a) -> [[(k,a)]] -> [(k,a)]
-mergeWith' f = foldr1 (merge2With f)
+-- mergeWith' :: (Ord k, Num a) => (a -> a -> a) -> [[(k,a)]] -> [(k,a)]
+-- mergeWith' f = foldr1 (merge2With f)
 
 -- merging in a triangle pattern, more limited than 'merge'
 -- mergeWith :: (Ord k, Num a) => (a -> a -> a) -> [[(k,a)]] -> [(k,a)]

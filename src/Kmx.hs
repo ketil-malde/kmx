@@ -6,13 +6,13 @@ import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, p
 import Kmers (kmers_rc, unkmer)
 import Filter
 import Entropy
-import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergeWith, mergePlus)
+import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus)
 
 import Bio.Core.Sequence
 import Bio.Sequence.FastQ
 import Bio.Sequence.Fasta
 import qualified Data.ByteString.Lazy as B
-import Control.Monad (when, replicateM)
+import Control.Monad (when, unless, replicateM)
 import Text.Printf
 import Data.List (intersperse)
 import System.IO.Unsafe
@@ -41,14 +41,16 @@ count opts = do
   freqs <- mk_judy (2*fromIntegral (kval opts))
   let kms = case filter_bits opts of
              0 -> concatMap kmer_seq s
-             b -> Filter.runfilter opts (concatMap kmer_seq s)
+             _ -> Filter.runfilter opts (concatMap kmer_seq s)
   mapM_ (add_count freqs) kms
   genOutputBS opts =<< Serialize.toByteString freqs
+
+-- filter input according to mincount and maxcount values
   
 -- | Output a histogram of count frequencies, optionally grouped by k-mer complexity (entropy)
 hist :: Options -> IO ()
 hist opts = do
-  let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . fst) else id) 
+  let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . fst) else id)
                   . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . fst) else id)
   (bits,str) <- readIndex opts
   let k = fromIntegral (bits `div` 2)
@@ -56,7 +58,7 @@ hist opts = do
       kvs' = Serialize.unpackPairs str
       kvs = case kval opts of
         0 -> kvs'
-        x -> if myk <= k && myk > 0 then combineKvs (fromIntegral myk) kvs'
+        _ -> if myk <= k && myk > 0 then combineKvs (fromIntegral myk) kvs'
              else error ("Illegal kmer value '"++show myk++"', must be less than "++show k++".")
   if complexity_classes opts > 0
     then do
@@ -65,10 +67,10 @@ hist opts = do
           sel_counter [x] _ = x
           step = max_entropy / fromIntegral (complexity_classes opts)
           ent = case complexity_mersize opts of
-            1 -> \x -> return (entropy k x)
+            1 -> return . entropy k
             2 -> entropy2 k
             n -> entropyN n k
-          max_entropy = let x = 4.0**fromIntegral  (complexity_mersize opts) in negate x * 1/x * log (1/x) / log 2
+          max_entropy = let x = 4.0**fromIntegral  (complexity_mersize opts) in negate x * 1/x * log (1/x) / log 2 -- uh, -1 * log(1/x)/log 2? = log_2 1/x
       let cnt (hash,occurs) = do
             e <- ent hash
             let c0 = sel_counter counters e
@@ -87,11 +89,12 @@ hist opts = do
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of
   [_,_] -> do 
-    a <- newArray ((0,0),(maxcov1 opts,maxcov2 opts)) 0 :: IO (IOUArray (Int,Int) Int)
+    a <- newArray ((mincount opts,mincount opts),(maxcount opts,maxcount opts)) 0 :: IO (IOUArray (Int,Int) Int)
     [(k1,str1), (k2,str2)] <- readIndices opts
     when (k1 /= k2) (error "K-mer sizes don't match")
     let update :: (Int,Int) -> IO ()
-        update (x,y) = do let ix = (min x (maxcov1 opts), min y (maxcov2 opts))
+        update (x,y) = do let ix = ( max (mincount opts) (min x (maxcount opts))
+                                   , max (mincount opts) (min y (maxcount opts)))
                           v <- readArray a ix
                           writeArray a ix (v+1)
     mapM_ (update . snd) $ merge2With (,) (Serialize.unpackPairs str1) (Serialize.unpackPairs str2)
@@ -101,7 +104,7 @@ heatmap opts =   case indices opts of
           (hd,[]) -> hd
           (hd,tl) -> hd++"":intersperseAt n tl
     xs <- getAssocs a
-    genOutput opts $ unlines $ intersperseAt (maxcov1 opts+1) $ map format xs
+    genOutput opts $ unlines $ intersperseAt (maxcount opts+1) $ map format xs
   _ -> error "heatmap requires exactly two input files."
                
 -- | Check that a count index file is consistent
@@ -117,7 +120,7 @@ verify opts = do
         | otherwise            = check ((k2,v2):rest)
       check [(k1,_v1)]
         | k1 < 0 || k1 > limit = error ("KMX Index: key out of range: "++show k1)
-        | otherwise            = do (putStrLn "KMX Index: OK")
+        | otherwise            = putStrLn "KMX Index: OK"
       check [] = putStrLn "KMX Index: OK"
   check $ Serialize.unpackPairs str
 
@@ -161,6 +164,6 @@ corr opts = case indices opts of
 mergeindices :: Options -> IO ()
 mergeindices opts = do
   (ks1:kss) <- mapM (\f -> Serialize.getmagic `fmap` B.readFile f) (indices opts)
-  when (not (all (==fst ks1) (map fst kss))) $ error "Incorrect k-mer size"
+  unless (all (==fst ks1) (map fst kss)) $ error "Incorrect k-mer size"
   let ps = map (Serialize.unpackPairs . snd) (ks1:kss)
   genOutputBS opts $ addmagic (fst ks1) $ Serialize.packPairs $ mergePlus ps
