@@ -13,12 +13,12 @@ import System.IO.Unsafe
 import Data.Char (ord)
 
 addmagic :: Int ->  B.ByteString -> B.ByteString
-addmagic k = B.append (B.pack (map (fromIntegral . ord) "kmx:" ++ [fromIntegral k]))
+addmagic k = B.append (B.pack (map (fromIntegral . ord) "kmc:" ++ [fromIntegral k]))
 
 getmagic :: B.ByteString -> (Int,B.ByteString)
 getmagic b = let (ks,rest) = B.splitAt 5 b
-             in if B.take 4 ks == BC.pack "kmx:" then (fromIntegral $ last $ B.unpack ks ,rest)
-                else error ("Wrong magic number - expected \"kmx:\", but got "++show (BC.take 4 ks)
+             in if B.take 4 ks == BC.pack "kmc:" then (fromIntegral $ last $ B.unpack ks ,rest)
+                else error ("Wrong magic number - expected \"kmc:\", but got "++show (BC.take 4 ks)
                             ++"\nThis does not look like a valid kmx index file.")
 
 type Index = (Int,[(Word,Int)]) -- k and a list of key/value pairs
