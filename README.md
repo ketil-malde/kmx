@@ -14,13 +14,13 @@ some features that may or may not be unique.
 This isn't so important in itself, but the underlying, highly tuned
 C-libarary gives decent performance and low memory consumption.
 
-2. It's exact, not probabilistic. Some of the faster and more
+2. It's exact, not probabilistic.  Some of the faster and more
 memory-frugal tools out there use heuristics to get that way. This is
 probably a worthwhile trade-off in many cases, but exact is still nice.
 
 3. It has a compact indexing format, using a differential coding to
 save space.  A benchmark indexing 200GB of Fastq data gives an index
-of 20GB.  In addition, the format is very easy to parse and generate
+of 20GB.  In addition, the format is easy to parse and generate
 (see src/Serialize.hs for details).  At least jellyfish produces a bit
 larger indexes in my tests.
 
@@ -41,7 +41,7 @@ space.
 6. Analyses can downscale the k-mer size without actually doing a
 recount.  So if you build with a k-mer size of 32 (the current
 maximum, limited by the available Judy data structure), you get
-indexing with any k-mer size less than that for free.
+indexing with any k-mer size less than that included.
 
 7. It is written in Haskell, and is thus much more beautiful than its
 competitors.  In retrospect, I should have named it Galatea.
@@ -59,11 +59,11 @@ first.
 
 It's pretty simple.  To build an index for k-mers of size 31, do:
 
-    kmx count -k 31 input.fastq more.fastq -o index.32
+    kmx count -k 31 input.fastq more.fastq -o index.31
 	
 To get the archetypical histogram from this, you can then:
 
-    kmx hist index.32 -o index.hist
+    kmx hist index.31 -o index.hist
 	
 Plotting is an optional extra, I tend to use Gnuplot, where you should
 be able to do something like:
@@ -89,9 +89,14 @@ say, eight sequential processes.  This is how:
 
 Basically, --filter-bits lets you specify the granularity, and the
 partial indices are then numbered from zero to 2^b-1.  Of course, if
-you have enough memory but would like to utilize more CPUs, just run
+you have enough memory but would like to make use of more CPUs, just run
 all of these simultaneously.  I encourage you to look at the script
 included, and modify it to suit your needs.
+
+## Testing
+
+There's also a test script, surprisingly called `test/test.sh`.  When
+run, it will perform a set of tests on the supplied data file.
 
 ## More information
 
