@@ -6,6 +6,7 @@ module Correlate
        , merge, merge2With, mergeWith, mergePlus) where
 
 import Data.List (foldl')
+import Data.Word  -- needed for old GHC
 
 -- merge key-value pairs, make a row for each minimum value
 merge :: (Ord k, Num v) => [[(k,v)]] -> [(k,[v])]
