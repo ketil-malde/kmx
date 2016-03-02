@@ -7,6 +7,8 @@ import FreqCount
 import Options
 
 import Data.Bits
+import Data.Word
+
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Lazy.Char8 as BC
 import System.IO.Unsafe

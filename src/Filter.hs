@@ -1,6 +1,7 @@
 module Filter (runfilter, combineKvs) where
 
 import Data.Bits
+import Data.Word
 import Options (Options(..))
 
 runfilter :: Options -> [Word] -> [Word]
