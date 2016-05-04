@@ -4,6 +4,7 @@ module Kmers (kmers_noerr, kmers, kmers_rc, unkmer) where
 import Prelude hiding (null, scanl, sum)
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.ByteString.Lazy.Char8 (ByteString)
+import Bio.Core.Sequence
 -- import Data.ByteString.Lazy as BW
 import Data.Word
 import Data.Int
@@ -39,9 +40,11 @@ kmers k bs' = if B.length bs' < k then [] else go_incomplete k 0 bs'
     accum w x = (w `shiftL` 2 .|. val x) .&. (4^k-1)
 
 -- both forward and reverse complement, equally fast(!)
-kmers_rc :: Int64 -> ByteString -> [Word]
-kmers_rc k bs' = if B.length bs' < k then [] else go_incomplete k 0 0 bs'
+kmers_rc :: Integral i => i -> SeqData -> [Word]
+kmers_rc k' bs'' = if B.length bs' < k then [] else go_incomplete k 0 0 bs'
   where
+    k = fromIntegral k'
+    bs' = unSD bs''
     go_incomplete 0 !wf !wr !bs = go_complete wf wr bs
     go_incomplete i !wf !wr !bs = case B.uncons bs of
       Just (!c,!rs) -> if val c == 4 then go_incomplete k 0 0 rs
