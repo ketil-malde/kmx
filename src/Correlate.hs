@@ -3,7 +3,8 @@
 
 module Correlate
        ( collect, collectSqrt, correlate, regression, corr0, regr0
-       , merge, merge2With, mergeWith, mergePlus) where
+       , merge, merge2With, mergeWith, mergePlus
+       , jaccard ) where
 
 import Data.List (foldl')
 import Data.Word  -- needed for old GHC
@@ -103,3 +104,16 @@ accSqrt1 c (x',y') = C { n = n c + 1
                }
   where x = fromIntegral x'
         y = fromIntegral y'
+
+-- Calculate a generalized jaccard distance, i.e. the probability of a random kmer picked
+-- from a random data set being occurring in both data sets.
+jaccard :: Ord k => [(k, Int)] -> [(k, Int)] -> (Int,Int,Int,Int,Double)
+jaccard as bs = jac $ foldl' jcount z $ map snd $ merge2With (,) as bs
+  where z = (0,0,0,0)
+        jcount (a,ab,ba,b) (0,x) = let b' = b+x in b' `seq` (a,ab,ba,b')
+        jcount (a,ab,ba,b) (x,0) = let a' = a+x in a' `seq` (a',ab,ba,b)
+        jcount (a,ab,ba,b) (x,y) = let ab' = ab+x; ba' = ba+y
+                                   in ab' `seq` ba' `seq` (a,ab',ba',b)
+        jac (a,ab,ba,b) = (a,ab,ba,b
+                          ,(fromIntegral ab/fromIntegral (a+ab) + fromIntegral ba/fromIntegral (ba+b))/2)
+

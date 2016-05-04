@@ -45,6 +45,16 @@ tail -n +2 $DIR/30.dump100 | head -4 | while read kmer count; do
     test "$total" -eq "$count" || error "Dump counts for $kmer don't match: $total and $count"
 done
 
+# Classify
+log "Testing classify"
+$KMX classify --file=test/250K-reads.fastq $DIR/index.32 -o $DIR/classify.out
+cut -f2 $DIR/classify.out | grep -m 4 ' 0 ' && error "Found zero count k-mers."
+
+$KMX classify -k 20 --file=test/250K-reads.fastq $DIR/index.32 -o $DIR/classify.32-20.out
+$KMX classify --file=test/250K-reads.fastq $DIR/index.20 -o $DIR/classify.20.out
+
+# how to test this?  Zero counts can legitimately happen before an N.
+
 # tests for correlate, heatmap?
 # check md5sums
 

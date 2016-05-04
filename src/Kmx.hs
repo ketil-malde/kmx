@@ -1,17 +1,17 @@
 module Main where
 
 import Options (Options(..), getArgs, genOutputBS, genOutput)
-import FreqCount (mk_judy, add_count, assocs)
+import FreqCount (mk_judy, FreqCount(..))
 import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, packPairs, addmagic)
 import Kmers (kmers_rc, unkmer)
 import Filter
 import Entropy
-import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus)
+import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus, jaccard)
 
 import Bio.Core.Sequence
 import Bio.Sequence.FastQ
 import Bio.Sequence.Fasta
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad (when, unless, replicateM)
 import Text.Printf
 import Data.List (intersperse)
@@ -30,23 +30,31 @@ main = do
     Dump {} -> dump opts
     Merge {} -> mergeindices opts
     Heatmap {} -> heatmap opts
+    Classify {} -> classify opts
+    Jaccard {} -> jacc opts
 
 -- | Build a k-mer count index
 count :: Options -> IO ()
 count opts = do
-  let rfa f = map (unSD . seqdata) `fmap` readFasta f
-      rfq f = map (unSD . seqdata) `fmap` readSangerQ f
-  s <- concat `fmap` mapM (if fasta opts then rfa else rfq) (files opts)
-  let kmer_seq = kmers_rc (fromIntegral $ kval opts)
+  s <- concat `fmap` readSequenceData opts
+  let kmer_seq = kmers_rc (kval opts)
   freqs <- mk_judy (2*fromIntegral (kval opts))
   let kms = case filter_bits opts of
-             0 -> concatMap kmer_seq s
-             _ -> Filter.runfilter opts (concatMap kmer_seq s)
+             0 -> concatMap (kmer_seq . snd) s
+             _ -> Filter.runfilter opts (concatMap (kmer_seq . snd) s)
   mapM_ (add_count freqs) kms
   genOutputBS opts =<< Serialize.toByteString freqs
 
--- filter input according to mincount and maxcount values
-  
+-- Read fasta or fastq sequences specified on the command line, return sequence contents
+readSequenceData :: Options -> IO [[(SeqLabel,SeqData)]]
+readSequenceData opts = case files opts of
+                             ["-"] -> stdinput
+                             [] -> stdinput
+                             fs -> mapM parseSeq fs
+  where stdinput = error "Can't read sequence data from standard input - sorry!"
+        parseSeq f = if fasta opts then map (\s -> (seqid s, seqdata s)) `fmap` readFasta f
+                     else map (\s -> (seqid s, seqdata s)) `fmap` readSangerQ f
+
 -- | Output a histogram of count frequencies, optionally grouped by k-mer complexity (entropy)
 hist :: Options -> IO ()
 hist opts = do
@@ -147,9 +155,44 @@ corr opts = case indices opts of
     printf "Zero intercept regression:   \tbeta=%.2f\n" beta0
   _ -> error "Correlation requires exactly two index files"
 
+jacc :: Options -> IO ()
+jacc opts = do
+    [(k1,vs1), (k2,vs2)] <- readIndices opts
+    when (k1 /= k2) (error "K-mer sizes don't match")
+    -- printf "Jaccard probability: %.4f\n" (jaccard vs1 vs2)
+    print (jaccard vs1 vs2)
+
 mergeindices :: Options -> IO ()
 mergeindices opts = do
   (ks1:kss) <- mapM (\f -> Serialize.getmagic `fmap` B.readFile f) (indices opts)
   unless (all (==fst ks1) (map fst kss)) $ error "Incorrect k-mer size"
   let ps = map (Serialize.unpackPairs . snd) (ks1:kss)
   genOutputBS opts $ addmagic (fst ks1) $ Serialize.packPairs $ mergePlus ps
+
+-- read Fastq or Fasta sequences, classify them by k-mer spectra
+classify :: Options -> IO ()
+classify opts = do
+  -- for each sequence, calculate frequency spectrum vector for each index
+  (k,vs) <- readIndex opts -- TODO: support multiple indices
+  idx <- mk_judy k
+  mapM_ (uncurry (set_count idx)) vs
+
+  -- output: median (quantiles), average, or full list
+  let classSingle [x] = genOutputBS opts . B.unlines =<< mapM class1 x
+      classSingle _ = error "can currently only classify a single input file"
+      _classPairs = undefined
+      class1 (h,s) = do
+        let kms = kmers_rc k s -- gen keys, lookup counts, output 
+        cs <- mapM (FreqCount.get_count idx) kms
+        return (B.concat [unSL h,B.pack "\t",B.unwords (map (B.pack . show) cs)])
+
+  if not (paired opts) then
+    classSingle =<< readSequenceData opts
+    else case readSequenceData opts of
+{-          [r1,r2] -> classPairs (zip r1 r2)
+          [rs]    -> classPairs (unterleave rs)
+            where unterleave (x1:x2:xs) = (x1,x2):unterleave xs
+                  unterleave [] = []
+                  unterleave _  = error "Odd number of sequences in interleaved paired file?" -}
+          _ -> error "Pair classification needs either two sequence files\nor one interleaved file"
+

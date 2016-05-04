@@ -31,6 +31,15 @@ data Options = Count { kval :: Int, fasta :: Bool
                        , output :: FilePath
                        , kval, mincount, maxcount :: Int
                        }
+             | Classify { indices :: [FilePath]
+                       , output :: FilePath
+                       , kval, mincount, maxcount :: Int
+                       , files :: [FilePath]
+                       , fasta, paired :: Bool
+                       }
+             | Jaccard { indices :: [FilePath]
+                       , kval :: Int
+                       } -- todo: kval, mincount, etc
              deriving (Typeable,Data)
 
 -- | Build a k-mer index and output to specified file name
@@ -96,8 +105,24 @@ def_merge = Merge { indices = [] &= args &= typFile
                 , output =  "" &= typFile &= help "Output file"
                 } &= details ["Merge two or more indices."]
 
+def_class :: Options
+def_class = Classify { indices = [] &= args &= typFile
+                     , output =  "" &= typFile &= help "Output file"
+                     , kval = 0 &= help "k-mer size to reduce to"
+                     , fasta = False &= help "input is Fasta format (default is FastQ)"
+                     , files = [] &= typFile &= help "sequences to classify"
+                     , paired = False &= help "read sequence pairs"
+                     , mincount = 0 &= help "minimum count to include"
+                     , maxcount = 0 &= help "maximum count to include"
+                     } &= details ["Classify fastq or fasta sequences by k-mer count spectrum"]
+
+def_jacc :: Options
+def_jacc = Jaccard { indices = [] &= args &= typFile
+                   , kval = 0 &= help "k-mer size to reduce to"
+                   }  &= details ["Calculate a probability-based jaccard distance between two k-indices"]
+
 getArgs :: IO Options
-getArgs = checkopts `fmap` (cmdArgsRun $ cmdArgsMode $ modes [def_count, def_hist, def_verify, def_corr, def_dump, def_merge, def_heatmap]
+getArgs = checkopts `fmap` (cmdArgsRun $ cmdArgsMode $ modes [def_count, def_hist, def_verify, def_corr, def_dump, def_merge, def_heatmap, def_class, def_jacc]
   &= summary "kmx v0.3x - tool for k-mers analysis in biological sequences.\n© Ketil Malde, 2014."
   &= program "kmx")
 
