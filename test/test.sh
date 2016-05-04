@@ -21,6 +21,9 @@ log "Testing count"
 $KMX count -k 32 test/250K-reads.fastq -o $DIR/index.32
 $KMX verify $DIR/index.32
 
+$KMX count -k 20 test/250K-reads.fastq -o $DIR/index.20
+$KMX verify $DIR/index.20
+
 # Build histograms
 log "Testing histograms"
 $KMX hist $DIR/index.32 > $DIR/32.hist
