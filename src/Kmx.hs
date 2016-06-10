@@ -3,10 +3,11 @@ module Main where
 import Options (Options(..), getArgs, genOutputBS, genOutput)
 import FreqCount (mk_judy, FreqCount(..))
 import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, packPairs, addmagic)
-import Kmers (kmers_rc, unkmer)
+import Kmers (kmers_rc, unkmer, kmers, initials)
 import Filter
 import Entropy
 import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus, jaccard)
+import Reseq
 
 import Bio.Core.Sequence
 import Bio.Sequence.FastQ
@@ -32,6 +33,7 @@ main = do
     Heatmap {} -> heatmap opts
     Classify {} -> classify opts
     Jaccard {} -> jacc opts
+    Reseq {} -> reseq opts
 
 -- | Build a k-mer count index
 count :: Options -> IO ()
@@ -196,3 +198,14 @@ classify opts = do
                   unterleave _  = error "Odd number of sequences in interleaved paired file?" -}
           _ -> error "Pair classification needs either two sequence files\nor one interleaved file"
 
+
+reseq :: Options -> IO ()
+reseq opts = do
+  (k,vs) <- readIndex opts -- TODO: support multiple indices
+  idx <- mk_judy k
+  mapM_ (uncurry (set_count idx)) vs
+  ss <- concat `fmap` readSequenceData opts
+  let test = snd (head ss)
+      ev = simpleeval simple_illumina test idx
+      ps = paths ev (initials (fromIntegral k) test) (maxlen opts)
+  mapM_ (putStrLn .showpath (fromIntegral k)) (take 3 ps)

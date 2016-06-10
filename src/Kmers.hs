@@ -1,10 +1,11 @@
 {-# Language BangPatterns #-}
-module Kmers (kmers_noerr, kmers, kmers_rc, unkmer) where
+module Kmers (kmers_noerr, kmers, kmers_rc, unkmer, val, unval, next1, next1_rc, initials) where
 
 import Prelude hiding (null, scanl, sum)
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Bio.Core.Sequence
+
 -- import Data.ByteString.Lazy as BW
 import Data.Word
 import Data.Int
@@ -56,6 +57,24 @@ kmers_rc k' bs'' = if B.length bs' < k then [] else go_incomplete k 0 0 bs'
       Nothing -> []
     accum w x    = (w `shiftL` 2 .|. val x) .&. (4^k-1)
     accum_rc w x = (w `shiftR` 2 .|. (val_rc x `shiftL` (2*(fromIntegral k-1)))) .&. (4^k-1)
+
+-- TODO: use these, but benchmark to make sure we don't lose performance
+next1, next1_rc :: Integral i => i -> Word -> Char -> Word
+next1 k w x = (w `shiftL` 2 .|. val x) .&. (4^k-1)
+next1_rc k w x = (w `shiftR` 2 .|. (val_rc x `shiftL` (2*(fromIntegral k-1)))) .&. (4^k-1)
+
+-- get first fwd and reverse hash from a sequence, needed for Reseq.paths 
+initials :: Integral i => Int64 -> SeqData -> (i,Word,Word)
+initials k' bs'' = if B.length bs' < k then error "too short input sequence" else go_incomplete 0 k 0 0 bs'
+  where
+    k = fromIntegral k'
+    bs' = unSD bs''
+    go_incomplete :: Integral i => i -> Int64 -> Word -> Word -> ByteString -> (i,Word,Word)
+    go_incomplete !p 0 !wf !wr _ = (p,wf,wr)
+    go_incomplete !p i !wf !wr !bs = case B.uncons bs of
+      Just (!c,!rs) -> if val c == 4 then go_incomplete (p+1) k 0 0 rs
+                       else go_incomplete (p+1) (i-1) (next1 k wf c) (next1_rc k wr c) rs
+      Nothing -> error "ran out of sequence"
 
 -- | Decode a k-mer to the corresponding sequence
 unkmer :: Int64 -> Word -> String
