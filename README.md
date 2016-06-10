@@ -21,15 +21,16 @@ probably a worthwhile trade-off in many cases, but exact is still nice.
 3. It has a compact indexing format, using a differential coding to
 save space.  A benchmark indexing 200GB of Fastq data gives an index
 of 20GB.  In addition, the format is easy to parse and generate
-(see src/Serialize.hs for details).  At least jellyfish produces a bit
-larger indexes in my tests.
+(see src/Serialize.hs for details).  I haven't compared to many other
+tools, but at least jellyfish produces a bit larger indexes in my
+tests.
 
-4. It is single threaded (for now, at least), but can distribute
-index-building over multiple processes.  This means you can get build
-an index for almost any amount of data on almost any kind of
+4. It is single threaded (for now, at least), but can paritition and
+distribute index-building over multiple processes.  This means you can
+build an index for almost any amount of data on almost any kind of
 computer.  Those 200GB were indexed using 32 separate processes in
 three and a half hours, the biggest memory footprint of a single
-process was 6 gigabytes.  There's a script that will use GNU parallel, 
+process was 6 gigabytes.  There's a script that will use GNU parallel,
 which wil let you distribute those processes to separate machines if
 you want.
 
@@ -80,7 +81,7 @@ usage and options.
 ## Distributed/parallel indexing
 
 If you are low on memory, you may want to split the indexing into,
-say, eight sequential processes.  This is how:
+say, eight sequential processes.  This is how you can do that:
 
     for x in {0..7}; do
        kmx count --filter-bits=3 --filter-value=$x input.fastq -o partial_index.$x
@@ -90,8 +91,8 @@ say, eight sequential processes.  This is how:
 Basically, --filter-bits lets you specify the granularity, and the
 partial indices are then numbered from zero to 2^b-1.  Of course, if
 you have enough memory but would like to make use of more CPUs, just run
-all of these simultaneously.  I encourage you to look at the script
-included, and modify it to suit your needs.
+all of these simultaneously.  I encourage you to look at the scripts
+included, and modify them to suit your needs.
 
 ## Testing
 
