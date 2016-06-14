@@ -22,7 +22,6 @@ import Data.List (sortBy, intercalate)
 import Data.Function (on)
 import Data.Bits
 import Data.Char (toLower)
-import qualified Data.PQueue.Min as H
 
 import Debug.Trace
 
@@ -50,10 +49,7 @@ data Path = Path { prob :: Prob    --  Negative logprob
                  , pos  :: Pos     -- position in reference sequence
                  , rc  :: Kmer     -- ugly, but cache revcompl of current mer
                  , path :: [Kmer]
-                 } deriving Eq
-
--- This is highly questionable with the Eq instance above, isn't it?
-instance Ord Path where compare = compare `on` prob
+                 }
 
 instance Show Path where
   show (Path pr p rc ws) = "Path "++show pr++" "++show p++" "++intercalate ":" (map (unkmer 5) (take 4 ws))
@@ -121,13 +117,10 @@ simpleeval ss sd kx = Eval
 -- Traversing the graph.  These should all return [Path], I think.
 -- ------------------------------------------------------------------------
 
-type Paths = H.MinQueue Path
-
 paths :: Eval -> (Pos,Kmer,Kmer) -> Pos -> [Path] -- iterate until position is reached, return lazy list of all paths
-paths e (p0,start,startrc) endpos = go (H.singleton (Path { prob = 0, pos = p0, rc = startrc, path = [start] }))
-  where go ps
-          | H.null ps = []
-          | otherwise = let p = H.findMin ps in if pos p >= endpos then p : go (H.deleteMin ps) else go (step e ps)
+paths e (p0,start,startrc) endpos = go [Path { prob = 0, pos = p0, rc = startrc, path = [start] }] 
+  where go (p:ps) = if pos p >= endpos then p : go ps else go (step e (p:ps))
+        go [] = []
         
 paths_pe :: a -> [Path]
 paths_pe = undefined -- iterate from both ends, until met, and add penalty for distance (first may not be best?)
@@ -137,13 +130,13 @@ paths_pe = undefined -- iterate from both ends, until met, and add penalty for d
 -- ------------------------------------------------------------------------
 
 -- Pop the top, expand it, and merge it back into the list           
-step :: Eval -> Paths -> Paths
-step e ps' | H.null ps' = error "Empty starting path for 'step'."
-           | otherwise = let (p,ps) = H.deleteFindMin ps' in H.union (expand e p) ps
+step :: Eval -> [Path] -> [Path]
+step e (p:ps) = mergepaths (expand e p) ps
+step _ [] = error "Empty starting path for 'step'."
 
-expand :: Eval -> Path -> Paths
-expand sd pt@(Path p i wr ws) = trace ("Current: "++show pt) $ -- ++show substs++show dels++show inss) $
-  H.fromList (substs++inss++dels)
+expand :: Eval -> Path -> [Path]
+expand sd pt@(Path p i wr ws) = -- trace ("Current: "++show pt) $ -- ++show substs++show dels++show inss) $
+  sortBy (compare `on` prob) (substs++inss++dels)
   where
     -- substitution or match - move forward and add one letter to path
     substs = [ Path (p+pr+subst sd i x) (i+1) wr (w:ws) | (x,w,pr) <- nextmers ]
@@ -152,4 +145,10 @@ expand sd pt@(Path p i wr ws) = trace ("Current: "++show pt) $ -- ++show substs+
     nextmers = next sd (head ws) wr 
     -- insertion in reference - progress reference but don't add letter to path
     inss   = [ Path (p+del sd i) (i+1) wr ws ]
+    
+-- just a lazy merge-insert
+mergepaths :: [Path] -> [Path] -> [Path]
+mergepaths [] qs = qs
+mergepaths ps [] = ps
+mergepaths (p:ps) (q:qs) = if prob p <= prob q then p : mergepaths ps (q:qs) else q : mergepaths (p:ps) qs
                                 
