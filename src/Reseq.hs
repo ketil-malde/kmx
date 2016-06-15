@@ -59,7 +59,9 @@ instance Show Path where
   show (Path pr p rc ws) = "Path "++show pr++" "++show p++" "++intercalate ":" (map (unkmer 5) (take 4 ws))
 
 -- bug: this will display the full kmer, even if that is longer than the max specified with -m
-showpath k (Path pr p rc (w:ws)) = "path: "++show pr++"\n"++reverse (map (last . unkmer k) ws) ++ unkmer k w
+showpath k (Path pr p rc ws) = "path: "++show pr++"\n"++reverse (go ws)
+  where go (x0:x:xs) = last (unkmer k x0) : go (x:xs)
+        go [x]    = reverse (unkmer k x)
 
 -- Gives probabilities for operations at various positions, used for
 -- scoring.  This can typically be created from a reference sequence and
