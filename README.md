@@ -36,7 +36,7 @@ you want.
 
 5. It has a bunch of analyses that may or may not be unique:
 correlations, heatmaps, and (of course) histograms.  See '--help' for
-details.  All of these (so far) run in constant (and rather little)
+details.  All of these (so far) run in constant (and rather modest)
 space.
 
 6. Analyses can downscale the k-mer size without actually doing a
@@ -49,12 +49,13 @@ competitors.  In retrospect, I should have named it Galatea.
 
 ## Installation
 
-Clone the repository, enter the directory, and type 'cabal install'.
+Clone the repository, cd into the directory, and type 'cabal install'.
 
 This presupposes that you have a fairly recent and working GHC
 installation, and if you just did 'apt-get install ghc' for this, you
 will probably need to 'apt-get cabal-install' and do a 'cabal update'
-first.
+first.  You may also need to install the development version of
+libjudy.  See .travis.yml for something that works.
 
 ## Usage
 
@@ -96,8 +97,9 @@ included, and modify them to suit your needs.
 
 ## Testing
 
-There's also a test script, surprisingly called `test/test.sh`.  When
-run, it will perform a set of tests on the supplied data file.
+There's also a test script, somewhat unsurprisingly called
+`test/test.sh`.  When run, it will perform a set of tests on the
+supplied data file. 
 
 ## More information
 
