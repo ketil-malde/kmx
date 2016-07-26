@@ -202,10 +202,17 @@ classify opts = do
 reseq :: Options -> IO ()
 reseq opts = do
   (k,vs) <- readIndex opts -- TODO: support multiple indices
+  putStrLn "Reading index..."
   idx <- mk_judy k
   mapM_ (uncurry (set_count idx)) vs
+  putStrLn "...done"
   ss <- concat `fmap` readSequenceData opts
-  let test = snd (head ss)
-      ev = simpleeval simple_illumina test idx
-      ps = paths ev (initials (fromIntegral k) test) (maxlen opts)
-  mapM_ (putStrLn .showpath (fromIntegral k)) (take 3 ps)
+  mapM_ (process (maxlen opts) k idx) ss
+
+process m k idx (h,s) = let
+  ev = simpleeval simple_illumina s idx
+  in case initials (fromIntegral k) s of
+      Nothing -> return ()
+      Just is  -> do
+        putStr (">"++toString h++" ")
+        putStrLn $ showpath (fromIntegral k) $ head $ paths ev is m

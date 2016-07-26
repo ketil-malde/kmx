@@ -64,17 +64,17 @@ next1 k w x = (w `shiftL` 2 .|. val x) .&. (4^k-1)
 next1_rc k w x = (w `shiftR` 2 .|. (val_rc x `shiftL` (2*(fromIntegral k-1)))) .&. (4^k-1)
 
 -- get first fwd and reverse hash from a sequence, needed for Reseq.paths 
-initials :: Integral i => Int64 -> SeqData -> (i,Word,Word)
+initials :: Integral i => Int64 -> SeqData -> Maybe (i,Word,Word)
 initials k' bs'' = if B.length bs' < k then error "too short input sequence" else go_incomplete 0 k 0 0 bs'
   where
     k = fromIntegral k'
     bs' = unSD bs''
-    go_incomplete :: Integral i => i -> Int64 -> Word -> Word -> ByteString -> (i,Word,Word)
-    go_incomplete !p 0 !wf !wr _ = (p,wf,wr)
+    go_incomplete :: Integral i => i -> Int64 -> Word -> Word -> ByteString -> Maybe (i,Word,Word)
+    go_incomplete !p 0 !wf !wr _ = Just (p,wf,wr)
     go_incomplete !p i !wf !wr !bs = case B.uncons bs of
       Just (!c,!rs) -> if val c == 4 then go_incomplete (p+1) k 0 0 rs
                        else go_incomplete (p+1) (i-1) (next1 k wf c) (next1_rc k wr c) rs
-      Nothing -> error "ran out of sequence"
+      Nothing -> Nothing
 
 -- | Decode a k-mer to the corresponding sequence
 unkmer :: Int64 -> Word -> String
