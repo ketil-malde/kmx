@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e -o pipefail
+shopt -s failglob
 
 log(){
     echo "$(tput setaf 2)$*$(tput sgr0)"
