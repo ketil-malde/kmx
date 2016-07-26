@@ -1,6 +1,11 @@
 -- | Correlate k-mer occurrences between data sets
 --   Probably room for efficiency improvements!
 
+{- Note: correlations are statistically dubious, variance probably
+   increases with count, and even this is assuming a sensible distribution,
+   something which probably doesn't hold.
+-}
+
 module Correlate
        ( collect, collectSqrt, correlate, regression, corr0, regr0
        , merge, merge2With, mergeWith, mergePlus
@@ -47,7 +52,7 @@ merge2With f ((k1,a):rest1) ((k2,b):rest2)
   | k1 > k2  = (k2,f 0 b) : merge2With f ((k1,a):rest1) rest2
 merge2With f [] rest = map (\(k,v) -> (k,f 0 v)) rest
 merge2With f rest [] = map (\(k,v) -> (k,f v 0)) rest
-                                         
+
 -- correlate? assuming through origo
 regr0 :: C -> Double
 regr0 r = xys r / x2s r
