@@ -11,26 +11,50 @@ Cycles: resolved by statistical distribution of fragment sizes
 
 -}
 
+{-
+  *********** Todo: ************
+  - merge Seen into Paths
+  - switch Seen from (Pos -> Kmers) around to (Kmers -> Pos) (for easier paired-end analysis)
+  - add a "greed" option, giving a positive bonus to scores
+  - add a "trailing" option, to cut threads falling too far behind
+  - support Bloom filters
+
+************ Bugs/Issues ***********
+  - handle out of sequence conditions
+
+-}
+
 import Kmers
 import FreqCount (FreqCount(..))
 
 import Bio.Core.Sequence
 import Data.ByteString.Lazy.Char8 (index)
+import qualified Data.ByteString.Lazy.Char8 as B
 
 import System.IO.Unsafe
 import Data.List (sortBy, intercalate)
 import Data.Function (on)
 import Data.Bits
 import Data.Char (toLower)
+
 import qualified Data.PQueue.Min as H
+import qualified Data.IntMap.Strict as S
+import qualified Data.IntSet as SS
 
 import Debug.Trace
+
+wlog :: String -> a -> a
+-- log = trace
+wlog = const
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 {- IMPORTANT: To get speed, I think we need to cache (position,kmer) info
    (dynamic programming) so that we don't calculate the same (remaining)
-   path many times
+   path many times  ACTUALLY: this is branch-and-bound.
+
+   Order by max achievable score (add scores assuming matches all the way to end)!
+   prove that this is admissible (easy?) and consisten (hard?)
 
    Maybe use Giegerich - array (pos,kmer) -> path
 
@@ -51,6 +75,9 @@ data Path = Path { prob :: Prob    --  Negative logprob
                  , rc  :: Kmer     -- ugly, but cache revcompl of current mer
                  , path :: [Kmer]
                  } deriving Eq
+
+type Paths = H.MinQueue Path
+type Seen  = S.IntMap SS.IntSet
 
 -- This is highly questionable with the Eq instance above, isn't it?
 instance Ord Path where compare = compare `on` prob
@@ -90,9 +117,10 @@ simple454 = SimpleScores { match = 0, unknown = 6, mismatch = 25, indel = 15 }
 -- should cache reversecompl kmer as well
 simpleeval :: SimpleScores -> SeqData -> FreqCount -> Eval
 simpleeval ss sd kx = Eval
-               { subst = \i x -> let c = unSD sd `index` fromIntegral i
+               { subst = \i x -> let s = unSD sd
+                                     c = s `index` fromIntegral i  -- here, i is the position being considered
                                  in -- trace ("c="++show c) $
-                                    if toLower c == toLower x then match ss
+                                    if fromIntegral i >= B.length s || toLower c == toLower x then match ss -- no penalty beyond sequence end
                                     else if c `notElem` "ACGTacgt" then unknown ss
                                          else mismatch ss
                , ins   = \_i _x -> indel ss 
@@ -106,11 +134,11 @@ simpleeval ss sd kx = Eval
                                       cs' = map (>=3) cs -- threshold for accepted link
 
                                       f = case length (filter (==True) cs') of
-                                        0 -> (undefined,6) -- all equally likely
+                                        0 -> (undefined,2) -- all equally likely
                                         1 -> (0,20) -- one taken, rest penalized (1% chance)
-                                        2 -> (3,20) -- 50% for each of two, rest 1%
-                                        3 -> (5,20) -- 33% and 1%
-                                        4 -> (6,undefined) -- again equally likely
+                                        2 -> (1,20) -- 50% for each of two, rest 1%
+                                        3 -> (1,20) -- 33% and 1%
+                                        4 -> (1,undefined) -- again equally likely
                                         _ -> error "wot? say it ain't so"
                                       prs :: [Prob]         -- prs = [(10*) . round . negate . logBase 10 $ (fromIntegral c / fromIntegral (sum cs)) | c <- cs]
                                       prs = map (\x -> if x then fst f else snd f) cs'
@@ -123,13 +151,12 @@ simpleeval ss sd kx = Eval
 -- Traversing the graph.  These should all return [Path], I think.
 -- ------------------------------------------------------------------------
 
-type Paths = H.MinQueue Path
-
 paths :: Eval -> (Pos,Kmer,Kmer) -> Pos -> [Path] -- iterate until position is reached, return lazy list of all paths
-paths e (p0,start,startrc) endpos = go (H.singleton (Path { prob = 0, pos = p0, rc = startrc, path = [start] }))
-  where go ps
+paths e (p0,start,startrc) endpos = go S.empty (H.singleton (Path { prob = 0, pos = p0, rc = startrc, path = [start] }))
+  where go sn ps
           | H.null ps = []
-          | otherwise = let p = H.findMin ps in if pos p >= endpos then p : go (H.deleteMin ps) else go (step e ps)
+          | otherwise = let p = H.findMin ps in if pos p >= endpos then p : go sn (H.deleteMin ps)
+                                                else let (s,p) = step e sn ps in go s p
         
 paths_pe :: a -> [Path]
 paths_pe = undefined -- iterate from both ends, until met, and add penalty for distance (first may not be best?)
@@ -139,13 +166,16 @@ paths_pe = undefined -- iterate from both ends, until met, and add penalty for d
 -- ------------------------------------------------------------------------
 
 -- Pop the top, expand it, and merge it back into the list           
-step :: Eval -> Paths -> Paths
-step e ps' | H.null ps' = error "Empty starting path for 'step'."
-           | otherwise = let (p,ps) = H.deleteFindMin ps' in H.union (expand e p) ps
+step :: Eval -> Seen -> Paths -> (Seen,Paths)
+step e sn ps' | H.null ps' = error "Empty starting path for 'step'."
+              | otherwise = let (p,ps) = H.deleteFindMin ps'
+                                (s,new) = expand e sn p
+                            in (s,H.union new ps)
 
-expand :: Eval -> Path -> Paths
-expand sd pt@(Path p i wr ws) = -- trace ("Current: "++show pt) $ -- ++show substs++show dels++show inss) $
-  H.fromList (substs++inss++dels)
+expand :: Eval -> Seen -> Path -> (Seen,Paths)
+expand sd sn pt@(Path p i wr ws) = wlog ("Current: "++show pt) $ -- ++show substs++show dels++show inss) $
+                                   wlog ("  candidates: "++show (map (\p -> (unkmer 5 . head $ path p,pos p,prob p)) unseen)) $
+  (newpos, H.fromList unseen) -- hmm. does this work?
   where
     -- substitution or match - move forward and add one letter to path
     substs = [ Path (p+pr+subst sd i x) (i+1) wr (w:ws) | (x,w,pr) <- nextmers ]
@@ -154,4 +184,18 @@ expand sd pt@(Path p i wr ws) = -- trace ("Current: "++show pt) $ -- ++show subs
     nextmers = next sd (head ws) wr 
     -- insertion in reference - progress reference but don't add letter to path
     inss   = [ Path (p+del sd i) (i+1) wr ws ]
-                                
+
+    unseen :: [Path]
+    unseen = filter unmember (substs++inss++dels)
+
+    unmember :: Path -> Bool
+    unmember x = case S.lookup (pos x) sn of
+                  Just kms -> not ((fromIntegral $ head $ path x) `SS.member` kms)
+                  Nothing  -> True
+
+    newpos :: Seen
+    newpos = go sn unseen
+      where go s (x:xs) = case S.lookup (pos x) s of
+              Just kms -> go (S.insert (pos x) (SS.insert (fromIntegral $ head $ path x) kms) s) xs
+              Nothing  -> go (S.insert (pos x) (SS.insert (fromIntegral $ head $ path x) SS.empty)  s) xs
+            go s [] = s
