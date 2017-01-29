@@ -53,12 +53,15 @@ mk_judy :: Int -> IO FreqCount
 mk_judy l = do
   -- putStrLn ("Init judy "++show l)
   j <- J.new :: IO (J.JudyL Int)
-  let ac k = k `seq` J.insertWith (+) k 1 j
+  -- let ac k = k `seq` J.insertWith (+) k 1 j
+  let ac k = k `seq` do -- insertWith
+        b <- J.member k j
+        if b then J.adjust (+1) k j else J.insert k 1 j
       gc k = k `seq` fromMaybe 0 `fmap` J.lookup k j
       sc k v = J.insert k v j
-      es = J.elems j
-      ks = J.keys j
-      as = J.toList j
+      es = J.unsafeFreeze j >>= J.elems
+      ks = J.unsafeFreeze j >>= J.keys
+      as = J.unsafeFreeze j >>= J.toList
   return $ FreqCount { key_bits = l
                      , add_count = ac, get_count = gc, set_count = sc
                      , keys = ks, counts = es, assocs = as
