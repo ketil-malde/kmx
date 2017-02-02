@@ -8,6 +8,7 @@ import Filter
 import Entropy
 import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus, jaccard)
 import Reseq
+import Stats
 
 import Bio.Core.Sequence
 import Bio.Sequence.FastQ
@@ -34,6 +35,7 @@ main = do
     Classify {} -> classify opts
     Jaccard {} -> jacc opts
     Reseq {} -> reseq opts
+    Stats {} -> stats opts
 
 -- | Build a k-mer count index
 count :: Options -> IO ()
@@ -216,3 +218,19 @@ process m k idx (h,s) = let
       Just is  -> do
         putStr (">"++toString h++" ")
         putStrLn $ showpath (fromIntegral k) $ head $ paths ev is m
+
+-- Output histograms - print stats on stdout: file name, params, goodness of fit
+-- With output option: generate histograms for the estimated distributions
+stats :: Options -> IO ()
+stats opts = do
+  hs <- readHistograms opts
+  let print1 h = do
+        mapM_ print (take 10 (calcStats h))
+        putStrLn ""
+  mapM_ print1 hs
+
+
+
+readHistograms :: Options -> IO [Histogram Double]
+readHistograms opts = do
+  mapM readHistogram (histograms opts)

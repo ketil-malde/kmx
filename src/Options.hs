@@ -14,6 +14,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , kval, mincount, maxcount :: Int
                      , complexity_classes, complexity_mersize :: Int
                      }
+             | Stats { output :: FilePath, histograms :: [FilePath] }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
@@ -134,9 +135,14 @@ def_reseq = Reseq { indices = [] &= typFile
                   , fasta = False &= help "input is Fasta format (default is FastQ)"
                   }  &= details ["Resequence input data using kmer information"]
 
+def_stats :: Options
+def_stats = Stats { output =  "" &= typFile &= help "Output file"
+                  , histograms = [] &= typFile &= help "Histogram(s) to analyze"
+                  } &= details ["Read histograms and estimate k-mer distribution parameters"]
+
 getArgs :: IO Options
-getArgs = checkopts `fmap` cmdArgsRun (cmdArgsMode $ modes [def_count, def_hist, def_verify, def_corr, def_dump, def_merge, def_heatmap, def_class, def_jacc, def_reseq]
-  &= summary "kmx v0.4x - tool for k-mers analysis in biological sequences.\n© Ketil Malde, 2014."
+getArgs = checkopts `fmap` cmdArgsRun (cmdArgsMode $ modes [def_count, def_hist, def_verify, def_corr, def_dump, def_merge, def_heatmap, def_class, def_jacc, def_reseq, def_stats]
+  &= summary "kmx v0.5 - tool for k-mers analysis in biological sequences.\n© Ketil Malde, 2014."
   &= program "kmx")
 
 checkopts :: Options -> Options
