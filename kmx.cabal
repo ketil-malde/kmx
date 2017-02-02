@@ -1,5 +1,5 @@
 Name: kmx
-Version:       0.4
+Version:       0.5
 License:       GPL
 Cabal-Version: >= 1.6
 Build-Type:    Simple
@@ -10,9 +10,9 @@ Synopsis:      K-mer counter
 Description:   Parses biological sequences and counts the kmers.
 
 Source-repository this
-    Type: darcs
-    Location: http://malde.org/~ketil/biohaskell/kmx
-    Tag: 0.4
+    Type: git
+    Location: http://github.com/ketil-malde/kmx
+    Tag: 0.5
 
 Executable kmx
     Main-Is:         Kmx.hs
