@@ -1,5 +1,6 @@
 module Stats where
 
+import Text.Printf
 import qualified Data.ByteString.Lazy.Char8 as B
 
 type Histogram a = [(Int,a)]
@@ -23,13 +24,15 @@ readHistogram f = do
 calcStats :: Histogram Double -> [Distribution]
 calcStats hist = let
   start = Dist (lambda (average (take 4 hist)) 1) (lambda (average (drop 4 hist)) 2) 0.45 0.05 0.45 0.05
-  step d = maximization (expectation d hist)
+  step d = maximization d (expectation d hist)
   in iterate step start
 
 average :: Histogram Double -> Double
-average xs = total xs / cnt xs
-  where cnt = sum . map snd
-        total = sum . map (\(x,y) -> fromIntegral x*y)
+average xs = total xs/cnt
+  where cnt = sum . map snd $ xs
+
+total :: Histogram Double -> Double
+total xs = sum . map (\(x,y) -> fromIntegral x*y) $ xs
 
 -- expectation: assign data to distributions
 expectation :: Distribution -> Histogram Double -> [Histogram Double] -- histograms: error, hap, dip, tetra+
@@ -41,12 +44,12 @@ expectation (Dist le ld we wh wd wr) = go [] [] [] []
         go errs haps dips reps [] = [errs,haps,dips,reps]
 
 -- maximization: determine parameters from assigned data
-maximization :: [Histogram Double] -> Distribution
-maximization [he,hh,hd,hr] = Dist e d (tot he) (tot hh) (tot hd) (tot hr)
-  where e = lambda (average he) 1
-        d1 = lambda (average hd) 3
-        d2 = lambda (average hh) 2
-        d  = (d1*tot hd+2*d2*tot hh)/(tot hd+tot hh)
+maximization :: Distribution -> [Histogram Double] -> Distribution
+maximization (Dist e' d' _ _ _ _) [he,hh,hd,hr] = Dist e d (tot he) (tot hh) (tot hd) (tot hr)
+  where e = lambda (average he) e'
+        dd = lambda (average hd) d'
+        dh = lambda (average hh) (d'/2)
+        d  = (dd*tot hd+2*dh*tot hh)/(tot hd+tot hh)
         tot = sum . map snd
         
 -- calculate zero-truncated poisson distribution (naively)
@@ -71,3 +74,28 @@ po_ratio2 ls x = [prs k | k <- exps]
 lambda :: Double -> Double -> Double
 lambda avg l0 = until' 0.0001 . iterate (\l -> avg*(1-exp(negate l))) $ l0
   where until' eps xs = if abs (xs!!0-xs!!1) < eps then xs!!1 else until' eps (drop 1 xs)
+
+-- output
+
+showDist :: Distribution -> Histogram Double -> IO ()
+showDist d@(Dist le ld we wh wd wr) h = do
+  let hs = expectation d h
+      [te,th,td,tr] = map total hs
+      fit = undefined  -- pointwise diff h and hs
+      ect = we*le
+      hct = wh*ld/2
+      dct = wd*ld
+      rct = wr*ld*2 -- dubious, but..
+  print d
+  printf "Diffs: %.0f %.0f %.0f %.0f\n" ect hct dct rct
+  printf "       %.0f %.0f %.0f %.0f\n" te th td tr
+  -- todo: really take into account read lenght and k-mer size
+  printf "Genome size: %d, " ((round ((hct+dct+rct)/ld))::Int)
+  printf "Error rate: %.4f, " (ect/(ect+hct+dct+rct))
+  printf "Heterozygosity: %.4f, " (hct/(hct+dct))
+  printf "Repeats: %.4f.\n" (rct/(hct+dct+rct))
+  printf "Dist: lambda_e=%.5f, lambda_d=%.4f\n" le ld
+  printf "Genome size: %d, " (round ((th+td+tr)/ld)::Int)
+  printf "Error rate: %.4f, " (te/(te+th+td+tr))
+  printf "Heterozygosity: %.4f, "(th/(th+td))
+  printf "Repeats: %.4f.\n" (tr/(th+td+tr))
