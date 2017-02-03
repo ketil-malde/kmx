@@ -35,8 +35,9 @@ average xs = total xs / cnt xs
 expectation :: Distribution -> Histogram Double -> [Histogram Double] -- histograms: error, hap, dip, tetra+
 expectation (Dist le ld we wh wd wr) = go [] [] [] []
   where go errs haps dips reps ((x,v):xs) = let
-          ws = po_ratio2 [le,ld/2,ld,2*ld] (fromIntegral x)
-          in go ((x,we*ws!!0):errs) ((x,wh*ws!!1):haps) ((x,wd*ws!!2):dips) ((x,wr*ws!!3):reps) xs
+          ws = normalize [we,wh,wd,wr] $ po_ratio2 [le,ld/2,ld,2*ld] (fromIntegral x)
+          normalize ps qs = let ns = zipWith (*) ps qs in map (/sum ns) ns
+          in go ((x,v*ws!!0):errs) ((x,v*ws!!1):haps) ((x,v*ws!!2):dips) ((x,v*ws!!3):reps) xs
         go errs haps dips reps [] = [errs,haps,dips,reps]
 
 -- maximization: determine parameters from assigned data
