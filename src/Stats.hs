@@ -35,11 +35,9 @@ average xs = total xs / cnt xs
 expectation :: Distribution -> Histogram Double -> [Histogram Double] -- histograms: error, hap, dip, tetra+
 expectation (Dist le ld we wh wd wr) = go [] [] [] []
   where go errs haps dips reps ((x,v):xs) = let
-          x' = fromIntegral x
-          probs = [we*poisson le x', wh*poisson (ld/2) x', wd*poisson ld x', wr*poisson (2*ld) x']
-          ws = [v*p/sum probs | p <- probs]
-          in go ((x,ws!!0):errs) ((x,ws!!1):haps) ((x,ws!!2):dips) ((x,ws!!3):reps) xs
-        go errs haps dips reps [] = map reverse [errs,haps,dips,reps]
+          ws = po_ratio2 [le,ld/2,ld,2*ld] (fromIntegral x)
+          in go ((x,we*ws!!0):errs) ((x,wh*ws!!1):haps) ((x,wd*ws!!2):dips) ((x,wr*ws!!3):reps) xs
+        go errs haps dips reps [] = [errs,haps,dips,reps]
 
 -- maximization: determine parameters from assigned data
 maximization :: [Histogram Double] -> Distribution
@@ -50,9 +48,22 @@ maximization [he,hh,hd,hr] = Dist e d (tot he) (tot hh) (tot hd) (tot hr)
         d  = (d1*tot hd+2*d2*tot hh)/(tot hd+tot hh)
         tot = sum . map snd
         
--- calculate poisson distribution
-poisson :: Double -> Double -> Double
-poisson lam x = lam**x * exp(-lam)/( (1-exp(-lam)) * product [2..x])
+-- calculate zero-truncated poisson distribution (naively)
+ztpoisson :: Double -> Double -> Double
+ztpoisson lam x = lam**x * exp(-lam)/( (1-exp(-lam)) * product [2..x])
+
+po_ratio0, po_ratio1, po_ratio2 :: [Double] -> Double -> [Double]
+po_ratio0 ls x = map (/ sum prs) prs
+  where prs = [ztpoisson l x | l <- ls] -- ztpoisson overflows and is slooow
+
+po_ratio1 ls x = map (/ sum prs) prs
+  where prs = map (pr1 x) ls
+        pr1 k l = exp (x*log l -l - log (1-exp(-l))) -- overflows for large x
+
+-- stable calculation of prob ratios (max likelihood) for large x
+po_ratio2 ls x = [prs k | k <- exps]
+  where exps = [x*log l -l - log (1-exp(-l)) | l <- ls]
+        prs k = 1/sum [exp (e-k) | e <- exps]
 
 -- estimate lambda from average of zero-truncated poisson data
 -- thanks: Simpson (2014), Bioinformatics 30:9
