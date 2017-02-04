@@ -230,7 +230,6 @@ stats opts = do
   mapM_ print1 hs
 
 
-
-readHistograms :: Options -> IO [Histogram Double]
+readHistograms :: Options -> IO [Histogram]
 readHistograms opts = do
   mapM readHistogram (histograms opts)
