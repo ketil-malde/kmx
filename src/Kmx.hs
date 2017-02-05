@@ -89,7 +89,8 @@ hist opts = do
       cts <- mk_judy 16
       mapM_ (add_count cts . fromIntegral . snd) kvs 
       as <- assocs cts
-      genOutput opts $ unlines [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
+      let as' = [(fromIntegral x,fromIntegral y) | (x,y) <- as]
+      genOutput opts $ unlines $ (map ("# "++) (showDist (Just k) (estimate as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
 
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of
@@ -220,16 +221,11 @@ process m k idx (h,s) = let
         putStrLn $ showpath (fromIntegral k) $ head $ paths ev is m
 
 -- Output histograms - print stats on stdout: file name, params, goodness of fit
+-- TODO: better format, run to convergence, calculate fit
 -- With output option: generate histograms for the estimated distributions
 stats :: Options -> IO ()
 stats opts = do
-  hs <- readHistograms opts
-  let print1 h = do
-        mapM_ print (take 10 (calcStats h))
-        putStrLn ""
-  mapM_ print1 hs
+  h <- readHistogram (histogram opts)
+  -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
+  mapM_ putStrLn (showDist Nothing (estimate h) h)
 
-
-readHistograms :: Options -> IO [Histogram]
-readHistograms opts = do
-  mapM readHistogram (histograms opts)

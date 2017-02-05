@@ -19,7 +19,15 @@ readHistogram f = do
           _ -> my_error ("Couldn't parse :"++B.unpack w1)            
         _ -> my_error ""
         where my_error x = error ("Couldn't parse file '"++f++"' as a histogram.\nOffending line:\n"++B.unpack (B.take 72 l)++"\n"++x)
-  map parse1 `fmap` B.lines `fmap` B.readFile f
+      noComment l = B.head l /= '#'
+  map parse1 `fmap` filter noComment `fmap` B.lines `fmap` B.readFile f
+
+estimate :: Histogram -> Distribution
+estimate = until' . take 100 . calcStats
+  where until' (d1:d2:rest) = if similar d1 d2 then d2 else until' (d2:rest)
+        until' [d] = d
+        until' []  = error "estimate failed inexplicably, this is as surprising to me as it is to you."
+        similar a b = abs (lambda_dip a - lambda_dip b) < 0.0001 && abs (lambda_err a - lambda_err b) < 0.0001
 
 calcStats :: Histogram -> [Distribution]
 calcStats hist = let
@@ -38,9 +46,9 @@ total xs = sum . map (\(x,y) -> fromIntegral x*y) $ xs
 expectation :: Distribution -> Histogram -> [Histogram] -- histograms: error, hap, dip, tetra+
 expectation (Dist le ld we wh wd wr) = go [] [] [] []
   where go errs haps dips reps ((x,v):xs) = let
-          ws = normalize [we,wh,wd,wr] $ po_ratio2 [le,ld/2,ld,2*ld] (fromIntegral x)
+          [pe,ph,pd,pr] = normalize [we,wh,wd,wr] $ po_ratio2 [le,ld/2,ld,2*ld] (fromIntegral x) -- weighted probabilities
           normalize ps qs = let ns = zipWith (*) ps qs in map (/sum ns) ns
-          in go ((x,v*ws!!0):errs) ((x,v*ws!!1):haps) ((x,v*ws!!2):dips) ((x,v*ws!!3):reps) xs
+          in go ((x,v*pe):errs) ((x,v*ph):haps) ((x,v*pd):dips) ((x,v*pr):reps) xs
         go errs haps dips reps [] = [errs,haps,dips,reps]
 
 -- maximization: determine parameters from assigned data
@@ -78,25 +86,16 @@ lambda avg l0 = until' 0.0001 . iterate (\l -> avg*(1-exp(negate l))) $ l0
 
 -- output
 
-showDist :: Distribution -> Histogram -> IO ()
-showDist d@(Dist le ld we wh wd wr) h = do
+showDist :: Maybe Int -> Distribution -> Histogram -> [String]
+showDist mk d@(Dist le ld we wh wd wr) h =
   let hs = expectation d h
       [te,th,td,tr] = map total hs
       fit = undefined  -- pointwise diff h and hs
-      ect = we*le
-      hct = wh*ld/2
-      dct = wd*ld
-      rct = wr*ld*2 -- dubious, but..
-  print d
-  printf "Diffs: %.0f %.0f %.0f %.0f\n" ect hct dct rct
-  printf "       %.0f %.0f %.0f %.0f\n" te th td tr
   -- todo: really take into account read lenght and k-mer size
-  printf "Genome size: %d, " ((round ((hct+dct+rct)/ld))::Int)
-  printf "Error rate: %.4f, " (ect/(ect+hct+dct+rct))
-  printf "Heterozygosity: %.4f, " (hct/(hct+dct))
-  printf "Repeats: %.4f.\n" (rct/(hct+dct+rct))
-  printf "Dist: lambda_e=%.5f, lambda_d=%.4f\n" le ld
-  printf "Genome size: %d, " (round ((th+td+tr)/ld)::Int)
-  printf "Error rate: %.4f, " (te/(te+th+td+tr))
-  printf "Heterozygosity: %.4f, "(th/(th+td))
-  printf "Repeats: %.4f.\n" (tr/(th+td+tr))
+  in [printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM dip: %.0fM rep: %.0fM" le ld (te/1e6) (th/1e6) (td/1e6) (tr/1e6),
+      concat [ printf "Genome size: %d, " (round ((th+td+tr)/ld)::Int) -- multiply by (l-k+1)/l
+            , printf "Error rate: %.4f, " (te/(te+th+td+tr))
+            , printf "Heterozygosity: %.4f, "(th/(th+td)) -- divide by k to get actual rate
+            , printf "Repeats: %.4f." (tr/(th+td+tr))
+            ]
+     ]

@@ -14,7 +14,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , kval, mincount, maxcount :: Int
                      , complexity_classes, complexity_mersize :: Int
                      }
-             | Stats { output :: FilePath, histograms :: [FilePath] }
+             | Stats { output :: FilePath, histogram :: FilePath }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
@@ -137,7 +137,7 @@ def_reseq = Reseq { indices = [] &= typFile
 
 def_stats :: Options
 def_stats = Stats { output =  "" &= typFile &= help "Output file"
-                  , histograms = [] &= typFile &= help "Histogram(s) to analyze"
+                  , histogram = "" &= args &= typFile
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]
 
 getArgs :: IO Options
