@@ -46,7 +46,7 @@ import Debug.Trace
 
 wlog :: String -> a -> a
 -- log = trace
-wlog = const
+wlog s x = x
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
