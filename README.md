@@ -66,7 +66,14 @@ It's pretty simple.  To build an index for k-mers of size 31, do:
 To get the archetypical histogram from this, you can then:
 
     kmx hist index.31 -o index.hist
-	
+
+Note that as of version 0.5, this will attempt to use an
+expectation-maximization algorithm to fit a set of Poisson
+distributions to the data, modelling the k-mer counts as a sum of errors,
+haploid, diploid, and repeat k-mer counts.  The results are added as
+comments to the top of the histogram, and can also be calculated from the
+histogram file using `kmx stats`.
+
 Plotting is an optional extra, I tend to use Gnuplot, where you should
 be able to do something like:
 

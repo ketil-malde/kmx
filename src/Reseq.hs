@@ -1,4 +1,5 @@
 module Reseq where
+import Data.Word
 
 {- Use one or more kmer-indices to resequence.
    Inputs can be
