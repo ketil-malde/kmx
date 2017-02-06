@@ -16,7 +16,7 @@ import Bio.Sequence.Fasta
 import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad (when, unless, replicateM)
 import Text.Printf
-import Data.List (intersperse)
+import Data.List (intersperse, sort)
 import System.IO.Unsafe
 
 import Data.Array.IO
@@ -90,7 +90,11 @@ hist opts = do
       mapM_ (add_count cts . fromIntegral . snd) kvs 
       as <- assocs cts
       let as' = [(fromIntegral x,fromIntegral y) | (x,y) <- as]
-      genOutput opts $ unlines $ (map ("# "++) (showDist (Just k) (estimate as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
+          hdr = "k="++show k++(case indices opts of
+                                [i] ->" inputs: "++i
+                                []  ->" inputs: -"
+                                _   ->"")
+      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (estimate as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
 
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of
@@ -227,5 +231,13 @@ stats :: Options -> IO ()
 stats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
-  mapM_ putStrLn (showDist Nothing (estimate h) h)
-
+  let d = estimate h
+  mapM_ putStrLn (showDist Nothing d h)
+  when (not . null $ output opts) $ do
+    let go :: Histogram -> [Histogram] -> [String]
+        go ((k,v):rest) kvs = format ((k,v):map head kvs) : go rest (map tail kvs)
+        go [] _ = []
+        format xs = (show . fst . head $ xs) ++ concat [printf "\t%.2f" w | (_,w) <- xs ]
+        ts = map sort (expectation d h) -- why are these always reversed?
+    genOutput opts $ unlines $ go h ts
+    return ()
