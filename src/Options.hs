@@ -12,9 +12,10 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , files :: [FilePath], output :: FilePath }
              | Hist  { indices :: [FilePath], output :: FilePath
                      , kval, mincount, maxcount :: Int
+                     , diploid :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
-             | Stats { output :: FilePath, histogram :: FilePath }
+             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
@@ -67,6 +68,7 @@ def_hist = Hist { -- kval = 0 &= help "k-mer size to use"
                 , maxcount = 0 &= help "maximum count to include"
                 , complexity_classes = 0 &= help "number of categories for k-mer complexity (entropy)" &= name "c"
                 , complexity_mersize = 1 &= help "mersize to calculate complexity for"                 &= name "m"
+                , diploid = False &= help "calculate statistics for diploid organism"
                 , indices = [] &= typFile &= args
                 }
            &= details ["Output a histogram of frequency counts."
@@ -138,6 +140,7 @@ def_reseq = Reseq { indices = [] &= typFile
 def_stats :: Options
 def_stats = Stats { output =  "" &= typFile &= help "Output file"
                   , histogram = "" &= args &= typFile
+                  , diploid = False &= help "organism is diploid"
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]
 
 getArgs :: IO Options

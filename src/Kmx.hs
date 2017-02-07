@@ -91,10 +91,10 @@ hist opts = do
       as <- assocs cts
       let as' = [(fromIntegral x,fromIntegral y) | (x,y) <- as]
           hdr = "k="++show k++(case indices opts of
-                                [i] ->" inputs: "++i
-                                []  ->" inputs: -"
+                                [i] ->" inputs="++i
+                                []  ->" inputs=-"
                                 _   ->"")
-      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (estimate as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
+      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (estimate (diploid opts) as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
 
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of
@@ -231,7 +231,7 @@ stats :: Options -> IO ()
 stats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
-  let d = estimate h
+  let d = estimate (diploid opts) h
   mapM_ putStrLn (showDist Nothing d h)
   when (not . null $ output opts) $ do
     let go :: Histogram -> [Histogram] -> [String]

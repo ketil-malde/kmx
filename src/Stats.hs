@@ -22,17 +22,17 @@ readHistogram f = do
       noComment l = B.head l /= '#'
   map parse1 `fmap` filter noComment `fmap` B.lines `fmap` B.readFile f
 
-estimate :: Histogram -> Distribution
-estimate = until' . take 100 . calcStats
+estimate :: Bool -> Histogram -> Distribution
+estimate dip = until' . take 100 . calcStats dip
   where until' (d1:d2:rest) = if similar d1 d2 then d2 else until' (d2:rest)
         until' [d] = d
         until' []  = error "estimate failed inexplicably, this is as surprising to me as it is to you."
         similar a b = abs (lambda_dip a - lambda_dip b) < 0.0001 && abs (lambda_err a - lambda_err b) < 0.0001
 
-calcStats :: Histogram -> [Distribution]
-calcStats hist = let
-  start = Dist (lambda (average (take 4 hist)) 1) (lambda (average (drop 4 hist)) 2) 0.45 0.05 0.45 0.05
-  step d = maximization d (expectation d hist)
+calcStats :: Bool -> Histogram -> [Distribution]
+calcStats diploid hist = let
+  start = Dist (lambda (average (take 4 hist)) 1) (lambda (average (drop 4 hist)) 2) 0.45 (if diploid then 0.05 else 0.00) 0.45 0.05 -- 0.00 for haploid
+  step d = maximization diploid d (expectation d hist)
   in iterate step start
 
 average :: Histogram -> Double
@@ -52,12 +52,13 @@ expectation (Dist le ld we wh wd wr) = go [] [] [] []
         go errs haps dips reps [] = [errs,haps,dips,reps]
 
 -- maximization: determine parameters from assigned data
-maximization :: Distribution -> [Histogram] -> Distribution
-maximization (Dist e' d' _ _ _ _) [he,hh,hd,hr] = Dist e d (tot he) (tot hh) (tot hd) (tot hr)
+maximization :: Bool -> Distribution -> [Histogram] -> Distribution
+maximization diploid (Dist e' d' _ _ _ _) [he,hh,hd,hr] = Dist e d (tot he) (tot hh) (tot hd) (tot hr)
   where e = lambda (average he) e'
         dd = lambda (average hd) d'
         dh = lambda (average hh) (d'/2)
-        d  = (dd*tot hd+2*dh*tot hh)/(tot hd+tot hh)
+        d  = if diploid then (dd*tot hd+2*dh*tot hh)/(tot hd+tot hh) -- avg of dip and hap
+             else dd
         tot = sum . map snd
         
 -- calculate zero-truncated poisson distribution (naively), expensive for large x
@@ -69,8 +70,8 @@ po_ratio0 ls x = map (/ sum prs) prs
   where prs = [ztpoisson l x | l <- ls] -- ztpoisson overflows and is slooow
 
 po_ratio1 ls x = map (/ sum prs) prs
-  where prs = map (pr1 x) ls
-        pr1 k l = exp (fromIntegral x*log l -l - log (1-exp(-l))) -- overflows for large x
+  where prs = map pr1 ls
+        pr1 l = exp (fromIntegral x*log l -l - log (1-exp(-l))) -- overflows for large x
 
 -- stable calculation of prob ratios (max likelihood) for large x
 -- tricksy: e^a / e^a + e^b + e^c + ... = 1/(1+e^(b-a)+e^(c-a)+...)
