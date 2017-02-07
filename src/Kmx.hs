@@ -233,7 +233,7 @@ stats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
   let d = estimate (diploid opts) h
-  mapM_ putStrLn (showDist Nothing d h)
+  mapM_ putStrLn (showDist Nothing (diploid opts) d h)
   when (not . null $ output opts) $ do
     let go :: Histogram -> [Histogram] -> [String]
         go ((k,v):rest) kvs = format ((k,v):map head kvs) : go rest (map tail kvs)
