@@ -94,7 +94,8 @@ hist opts = do
                                 [i] ->" inputs="++i
                                 []  ->" inputs=-"
                                 _   ->"")
-      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (estimate (diploid opts) as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
+                ++if diploid opts then " (diploid statistics)" else " (haploid statistics)"
+      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (diploid opts) (estimate (diploid opts) as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
 
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of

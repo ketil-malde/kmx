@@ -87,16 +87,17 @@ lambda avg l0 = until' 0.0001 . iterate (\l -> avg*(1-exp(negate l))) $ l0
 
 -- output
 
-showDist :: Maybe Int -> Distribution -> Histogram -> [String]
-showDist mk d@(Dist le ld we wh wd wr) h =
+showDist :: Maybe Int -> Bool -> Distribution -> Histogram -> [String]
+showDist mk diploid d@(Dist le ld we wh wd wr) h =
   let hs = expectation d h
       [te,th,td,tr] = map total hs
-      fit = undefined  -- pointwise diff h and hs
+      -- fit = undefined  -- pointwise diff h and hs
   -- todo: really take into account read lenght and k-mer size
-  in [printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM dip: %.0fM rep: %.0fM" le ld (te/1e6) (th/1e6) (td/1e6) (tr/1e6),
+  in [if diploid then printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM dip: %.0fM rep: %.0fM" le ld (te/1e6) (th/1e6) (td/1e6) (tr/1e6)
+      else printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM rep: %.0fM" le ld (te/1e6) (td/1e6) (tr/1e6),
       concat [ printf "Genome size: %d, " (round ((th+td+tr)/ld)::Int) -- multiply by (l-k+1)/l
             , printf "Error rate: %.4f, " (te/(te+th+td+tr))
-            , printf "Heterozygosity: %.4f, "(th/(th+td)) -- divide by k to get actual rate
+            , if diploid then printf "Heterozygosity: %.4f, "(th/(th+td)) else ""-- divide by k to get actual rate
             , printf "Repeats: %.4f." (tr/(th+td+tr))
             ]
      ]
