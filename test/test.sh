@@ -31,6 +31,10 @@ log "Testing histograms"
 $KMX hist $DIR/index.32 > $DIR/32.hist
 $KMX hist -k 28 $DIR/index.32 > $DIR/32-to-28.hist
 
+log "Testing stats"
+$KMX stats $DIR/32.hist
+$KMX stats $DIR/32-to-28.hist
+
 # Test merge functionality
 log "Testing partial builds and merge"
 $KMX count -k 32 test/250K-reads.fastq --filter-bits=1 --filter-value=0 -o $DIR/index.32-0
