@@ -183,20 +183,28 @@ mergeindices opts = do
 -- read Fastq or Fasta sequences, classify them by k-mer spectra
 classify :: Options -> IO ()
 classify opts = do
-  -- for each sequence, calculate frequency spectrum vector for each index
-  (k,vs) <- readIndex opts -- TODO: support multiple indices
+  -- read index into a Judy array (mincount=2 might be a good idea?)
+  (k,vs) <- readIndex opts
   idx <- mk_judy k
   mapM_ (uncurry (set_count idx)) vs
 
   -- output: median (quantiles), average, or full list
   let classSingle [x] = genOutputBS opts . B.unlines =<< mapM class1 x
       classSingle _ = error "can currently only classify a single input file"
-      _classPairs = undefined
       class1 (h,s) = do
-        let kms = kmers_rc k s -- gen keys, lookup counts, output 
+        -- gen keys, lookup counts, output
+        let kms = kmers_rc k s
         cs <- mapM (FreqCount.get_count idx) kms
-        return (B.concat [unSL h,B.pack "\t",B.unwords (map (B.pack . show) cs)])
-
+        let avg, q25, q50, q75 :: Double
+            avg = fromIntegral (sum cs)/fromIntegral (length cs)
+            css = sort cs
+            l   = length cs `div` 4
+            head0 (x:_) = fromIntegral x
+            head0 []    = 0
+            q25 = head0 $ take l css
+            q50 = head0 $ take (2*l) css
+            q75 = head0 $ take (3*l) css
+        return (B.pack $ printf "%s Avg: %.1f Q25: %.1f Q50: %.1f Q75: %.1f" (B.unpack $ unSL h) avg q25 q50 q75) -- quantiles?
   if not (paired opts) then
     classSingle =<< readSequenceData opts
     else case readSequenceData opts of
