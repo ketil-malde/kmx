@@ -35,7 +35,7 @@ main = do
     Classify {} -> classify opts
     Jaccard {} -> jacc opts
     Reseq {} -> reseq opts
-    Stats {} -> stats opts
+    Stats {} -> genstats opts
 
 -- | Build a k-mer count index
 count :: Options -> IO ()
@@ -237,8 +237,8 @@ process m k idx (h,s) = let
 -- Output histograms - print stats on stdout: file name, params, goodness of fit
 -- TODO: better format, run to convergence, calculate fit
 -- With output option: generate histograms for the estimated distributions
-stats :: Options -> IO ()
-stats opts = do
+genstats :: Options -> IO ()
+genstats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
   let d = estimate (diploid opts) h
