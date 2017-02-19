@@ -3,11 +3,11 @@ module Main where
 import Options (Options(..), getArgs, genOutputBS, genOutput)
 import FreqCount (mk_judy, FreqCount(..))
 import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, packPairs, addmagic)
-import Kmers (kmers_rc, unkmer, kmers, initials)
+import Kmers (kmers_rc, unkmer, initials)
 import Filter
 import Entropy
 import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus, jaccard)
-import Reseq
+import Reseq (simpleeval,simple_illumina,paths,showpath)
 import Stats
 
 import Bio.Core.Sequence
@@ -70,6 +70,7 @@ hist opts = do
       counters <- replicateM (complexity_classes opts) (mk_judy 16)
       let sel_counter (x:xs@(_:_)) e = if e <= 0.0 then x else sel_counter xs (e-step)
           sel_counter [x] _ = x
+          sel_counter [] _ = error "empty input to sel_counter"
           step = max_entropy / fromIntegral (complexity_classes opts)
           ent = let k' = fromIntegral k in case complexity_mersize opts of
             1 -> return . entropy k'
@@ -206,7 +207,7 @@ classify opts = do
                   unterleave _  = error "Odd number of sequences in interleaved paired file?" -}
           _ -> error "Pair classification needs either two sequence files\nor one interleaved file"
 
-
+-- Resequence by guided path traversal (reconstruct sequences)
 reseq :: Options -> IO ()
 reseq opts = do
   (k,vs) <- readIndex opts -- TODO: support multiple indices
