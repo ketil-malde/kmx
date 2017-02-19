@@ -6,17 +6,18 @@ import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, p
 import Kmers (kmers_rc, unkmer, initials)
 import Filter
 import Entropy
-import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge, merge2With, mergePlus, jaccard)
+import Correlate (collect, collectSqrt, correlate, regression, corr0, regr0, merge2With, mergePlus, jaccard)
 import Reseq (simpleeval,simple_illumina,paths,showpath)
 import Stats
+import Hist
 
 import Bio.Core.Sequence
 import Bio.Sequence.FastQ
 import Bio.Sequence.Fasta
 import qualified Data.ByteString.Lazy.Char8 as B
-import Control.Monad (when, unless, replicateM)
+import Control.Monad (when, unless)
 import Text.Printf
-import Data.List (intersperse, sort)
+import Data.List (sort)
 import System.IO.Unsafe
 
 import Data.Array.IO
@@ -58,45 +59,6 @@ readSequenceData opts = case files opts of
   where stdinput = error "Can't read sequence data from standard input - sorry!"
         parseSeq f = if fasta opts then map (\s -> (seqid s, seqdata s)) `fmap` readFasta f
                      else map (\s -> (seqid s, seqdata s)) `fmap` readSangerQ f
-
--- | Output a histogram of count frequencies, optionally grouped by k-mer complexity (entropy)
-hist :: Options -> IO ()
-hist opts = do
-  let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . fst) else id)
-                  . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . fst) else id)
-  (k,kvs) <- readIndex opts
-  if complexity_classes opts > 0
-    then do
-      counters <- replicateM (complexity_classes opts) (mk_judy 16)
-      let sel_counter (x:xs@(_:_)) e = if e <= 0.0 then x else sel_counter xs (e-step)
-          sel_counter [x] _ = x
-          sel_counter [] _ = error "empty input to sel_counter"
-          step = max_entropy / fromIntegral (complexity_classes opts)
-          ent = let k' = fromIntegral k in case complexity_mersize opts of
-            1 -> return . entropy k'
-            2 -> entropy2 k'
-            n -> entropyN n k'
-          max_entropy = let x = 4.0**fromIntegral  (complexity_mersize opts) in negate x * 1/x * log (1/x) / log 2 -- uh, -1 * log(1/x)/log 2? = log_2 1/x = -log_2 x ?
-      let cnt (hash,occurs) = do
-            e <- ent hash
-            let c0 = sel_counter counters e
-            add_count c0 (fromIntegral occurs)
-      mapM_ cnt kvs
-      my_assocs <- mapM assocs counters
-      let format_line (ky,vs) = concat $ intersperse "\t" (show ky:map show vs)
-          header = concat ("#count":[printf "\t<=%.2f" x | x <- [step,2*step..max_entropy]])
-      genOutput opts $ unlines (header : [ format_line ln | ln <- my_filter (merge my_assocs)])
-    else do  -- just a single histogram
-      cts <- mk_judy 16
-      mapM_ (add_count cts . fromIntegral . snd) kvs 
-      as <- assocs cts
-      let as' = [(fromIntegral x,fromIntegral y) | (x,y) <- as]
-          hdr = "k="++show k++(case indices opts of
-                                [i] ->" inputs="++i
-                                []  ->" inputs=-"
-                                _   ->"")
-                ++if diploid opts then " (diploid statistics)" else " (haploid statistics)"
-      genOutput opts $ unlines $ (map ("# "++) (hdr:showDist (Just k) (diploid opts) (estimate (diploid opts) as') as')) ++ [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
 
 heatmap :: Options -> IO ()
 heatmap opts =   case indices opts of
