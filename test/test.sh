@@ -47,6 +47,10 @@ log "Testing dump"
 $KMX dump $DIR/index.32 | head -100 > $DIR/32.dump100
 $KMX dump -k 30 $DIR/index.32 | head -100 > $DIR/30.dump100
 
+$KMX dump --mincount 3 --maxcount 9 $DIR/index.32 > $DIR/32.dump.3-9
+echo -n "Word count 3-9: "
+cut -f2 $DIR/32.dump.3-9 | grep -c '^[3-9]$'
+
 # verify k-mer lenghts
 # verify that count-30 for XXXXX is count-32 for XXXXXyy 
 tail -n +2 $DIR/30.dump100 | head -4 | while read kmer count; do
