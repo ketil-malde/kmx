@@ -104,10 +104,8 @@ dump opts = do
   let k = fromIntegral k'
       showPair (w,v) = ((if hashes opts then (show w ++ "\t" ++ show v) else (unkmer k w ++ "\t"++show v))
                         ++if complexity opts then "\t"++printf "%.3f\t%.3f\t%.3f" (entropy k w) (unsafePerformIO $ entropy2 k w) (unsafePerformIO $ entropyN 3 k w) else "")
-      my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . snd) else id) 
-                  . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . snd) else id)
       header = "# k="++show k
-  genOutput opts $ unlines $ (header:) $ map showPair $ my_filter idx
+  genOutput opts $ unlines $ (header:) $ map showPair idx
 
 -- | Compare k-mer counts between two or more indexes/files
 corr :: Options -> IO ()

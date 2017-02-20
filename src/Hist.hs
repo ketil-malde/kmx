@@ -13,11 +13,35 @@ import Text.Printf
 -- | Output a histogram of count frequencies, optionally grouped by k-mer complexity (entropy)
 hist :: Options -> IO ()
 hist opts = do
-  let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . fst) else id)
-                  . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . fst) else id)
-  (k,kvs) <- readIndex opts
   if complexity_classes opts > 0
-    then do
+    then hist_with_complexity opts
+    else if stats opts
+         then hist_with_stats opts
+         else hist_simple opts
+
+mkcount :: Options -> IO (Int,FreqCount)
+mkcount opts = do
+      (k,kvs) <- readIndex opts
+      cts <- mk_judy 16
+      mapM_ (add_count cts . fromIntegral . snd) kvs
+      return (k,cts)
+
+hist_simple :: Options -> IO ()
+hist_simple opts = do
+      (_k,cts) <- mkcount opts
+      as <- assocs cts
+      genOutput opts $ unlines [show ky ++ "\t" ++ show v | (ky,v) <- as]
+
+hist_with_stats :: Options -> IO ()
+hist_with_stats opts = do
+      (k,cts) <- mkcount opts
+      as <- assocs cts
+      ss <- calcstats opts k cts
+      genOutput opts $ unlines $ (map ("# "++) ss) ++ [show ky ++ "\t" ++ show v | (ky,v) <- as]
+
+hist_with_complexity :: Options -> IO ()
+hist_with_complexity opts = do
+      (k,kvs) <- readIndex opts
       counters <- replicateM (complexity_classes opts) (mk_judy 16)
       let sel_counter (x:xs@(_:_)) e = if e <= 0.0 then x else sel_counter xs (e-step)
           sel_counter [x] _ = x
@@ -36,16 +60,7 @@ hist opts = do
       my_assocs <- mapM assocs counters
       let format_line (ky,vs) = concat $ intersperse "\t" (show ky:map show vs)
           header = concat ("#count":[printf "\t<=%.2f" x | x <- [step,2*step..max_entropy]])
-      genOutput opts $ unlines (header : [ format_line ln | ln <- my_filter (merge my_assocs)])
-    else do  -- just a single histogram
-      cts <- mk_judy 16
-      mapM_ (add_count cts . fromIntegral . snd) kvs 
-      as <- assocs cts
-      if stats opts -- WTF: commenting out this (up to ..else) reduces memory footprint, even if not (stats opts)!
-        then do ss <- calcstats opts k cts
-                genOutput opts $ unlines $ (map ("# "++) ss) ++
-                  [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as] -- my_filter should be part of readIndex
-        else genOutput opts $ unlines [show ky ++ "\t" ++ show v | (ky,v) <- my_filter as]
+      genOutput opts $ unlines (header : [ format_line ln | ln <- merge my_assocs ])
 
 -- this causes a huge residency, why?  Strictify d?
 {-# NoInline calcstats #-}

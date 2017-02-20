@@ -12,7 +12,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , files :: [FilePath], output :: FilePath }
              | Hist  { indices :: [FilePath], output :: FilePath
                      , kval, mincount, maxcount :: Int
-                     , diploid :: Bool
+                     , diploid, stats :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
              | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool }
@@ -20,7 +20,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
                          }
-             | Verify { indices :: [FilePath] }
+             | Verify { indices :: [FilePath], mincount, maxcount :: Int }
              | Dump { indices :: [FilePath], output :: FilePath
                     , kval, mincount, maxcount :: Int
                     , hashes :: Bool
@@ -69,13 +69,19 @@ def_hist = Hist { -- kval = 0 &= help "k-mer size to use"
                 , complexity_classes = 0 &= help "number of categories for k-mer complexity (entropy)" &= name "c"
                 , complexity_mersize = 1 &= help "mersize to calculate complexity for"                 &= name "m"
                 , diploid = False &= help "calculate statistics for diploid organism"
+                , stats   = False &= help "calculate statistics (may use more memory)"                 &= name "s"
                 , indices = [] &= typFile &= args
                 }
            &= details ["Output a histogram of frequency counts."
-                      ,"Each line contains a frequency and the number of distinct k-mers occurring with this frequency."]
+                      ,"Each line contains a frequency and the number of distinct k-mers occurring with this frequency."
+                      ,"With -s, output comment header with estimated k-mer distribution (similar to 'kmx stats')"
+                      ]
 
 def_verify :: Options
-def_verify = Verify { indices = [] &= typFile &= args }
+def_verify = Verify { indices = [] &= typFile &= args
+                     , mincount = 0 &= help "minimum count to include"  -- useless here?
+                     , maxcount = 0 &= help "maximum count to include"
+                    }
              &= details ["Verify the correctness of a count index."]
 
 def_corr :: Options

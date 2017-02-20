@@ -35,8 +35,10 @@ readIndex opts = do
           ["-"] -> B.getContents
           [f] -> B.readFile f
           _ -> error ("Multiple indices specified, but we only want one:\n\t"++show (indices opts))
+  let my_filter = (if mincount opts > 0 then filter ((>= fromIntegral (mincount opts)) . snd) else id) 
+                  . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . snd) else id)
   case opts of
-   Verify {} -> let (k,s) = getmagic str in return (k `div` 2,unpackPairs s) -- verify doesn't have the k option
+   Verify {} -> let (k,s) = getmagic str in return (k `div` 2, my_filter (unpackPairs s)) -- verify doesn't have the k option
    _ -> return (parse1idx opts str)
 
 readIndices :: Options -> IO [Index]
