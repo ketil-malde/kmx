@@ -35,9 +35,10 @@ hist_simple opts = do
 
 hist_with_stats :: Options -> IO ()
 hist_with_stats opts = do
+      (k,_) <- readIndex opts
       cts <- mkcount opts
       as <- assocs cts
-      ss <- calcstats opts (key_bits cts `div` 2) cts
+      ss <- calcstats opts k cts
       -- core dumps (unsafe Judy, probably) without deepseq here
       as `deepseq` genOutput opts $ unlines $ (map ("# "++) ss) ++ [show ky ++ "\t" ++ show v | (ky,v) <- as]
 
