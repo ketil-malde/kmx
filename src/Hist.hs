@@ -9,6 +9,7 @@ import Data.List (intersperse)
 import Control.Monad (replicateM)
 import Serialize (readIndex)
 import Text.Printf
+import Control.DeepSeq
 
 -- | Output a histogram of count frequencies, optionally grouped by k-mer complexity (entropy)
 hist :: Options -> IO ()
@@ -19,25 +20,26 @@ hist opts = do
          then hist_with_stats opts
          else hist_simple opts
 
-mkcount :: Options -> IO (Int,FreqCount)
+mkcount :: Options -> IO FreqCount
 mkcount opts = do
-      (k,kvs) <- readIndex opts
+      (_k,kvs) <- readIndex opts
       cts <- mk_judy 16
       mapM_ (add_count cts . fromIntegral . snd) kvs
-      return (k,cts)
+      return cts
 
 hist_simple :: Options -> IO ()
 hist_simple opts = do
-      (_k,cts) <- mkcount opts
+      cts <- mkcount opts
       as <- assocs cts
       genOutput opts $ unlines [show ky ++ "\t" ++ show v | (ky,v) <- as]
 
 hist_with_stats :: Options -> IO ()
 hist_with_stats opts = do
-      (k,cts) <- mkcount opts
+      cts <- mkcount opts
       as <- assocs cts
-      ss <- calcstats opts k cts
-      genOutput opts $ unlines $ (map ("# "++) ss) ++ [show ky ++ "\t" ++ show v | (ky,v) <- as]
+      ss <- calcstats opts (key_bits cts `div` 2) cts
+      -- core dumps (unsafe Judy, probably) without deepseq here
+      as `deepseq` genOutput opts $ unlines $ (map ("# "++) ss) ++ [show ky ++ "\t" ++ show v | (ky,v) <- as]
 
 hist_with_complexity :: Options -> IO ()
 hist_with_complexity opts = do
@@ -63,7 +65,6 @@ hist_with_complexity opts = do
       genOutput opts $ unlines (header : [ format_line ln | ln <- merge my_assocs ])
 
 -- this causes a huge residency, why?  Strictify d?
-{-# NoInline calcstats #-}
 calcstats :: Options -> Int -> FreqCount -> IO [String]
 calcstats opts k cts = do
       as' <- assocs cts
