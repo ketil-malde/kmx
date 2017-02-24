@@ -15,7 +15,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , diploid, stats :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
-             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool }
+             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool, kval :: Int }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
@@ -145,6 +145,7 @@ def_reseq = Reseq { indices = [] &= typFile
 
 def_stats :: Options
 def_stats = Stats { output =  "" &= typFile &= help "Output file"
+                  , kval = 0 &= help "k-mer size for statistics (0 disables)"
                   , histogram = "" &= args &= typFile
                   , diploid = False &= help "organism is diploid"
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]
