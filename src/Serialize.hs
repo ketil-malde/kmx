@@ -39,7 +39,7 @@ readIndex opts = do
                   . (if maxcount opts > 0 then filter ((<= fromIntegral (maxcount opts)) . snd) else id)
   case opts of
    Verify {} -> let (k,s) = getmagic str in return (k `div` 2, my_filter (unpackPairs s)) -- verify doesn't have the k option
-   _ -> return (parse1idx opts str)
+   _ -> let (k,r) = parse1idx opts str in return (k, my_filter r)
 
 readIndices :: Options -> IO [Index]
 readIndices opts = if length (indices opts) <= 1 then do {c <- readIndex opts; return [c] }
