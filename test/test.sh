@@ -48,8 +48,9 @@ $KMX dump $DIR/index.32 | head -100 > $DIR/32.dump100
 $KMX dump -k 30 $DIR/index.32 | head -100 > $DIR/30.dump100
 
 $KMX dump --mincount 3 --maxcount 9 $DIR/index.32 > $DIR/32.dump.3-9
-echo -n "Word count 3-9: "
-cut -f2 $DIR/32.dump.3-9 | grep -c '^[3-9]$'
+count=$(cut -f2 $DIR/32.dump.3-9 | grep -c '^[3-9]$')
+output=$(tail -n +2 $DIR/32.dump.3-9 | wc -l)
+test "$count" -eq "$output" || error "Dump min/max mismatch"
 
 # verify k-mer lenghts
 # verify that count-30 for XXXXX is count-32 for XXXXXyy 
