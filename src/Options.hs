@@ -11,11 +11,12 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , filter_bits :: Int, filter_value :: Word
                      , files :: [FilePath], output :: FilePath }
              | Hist  { indices :: [FilePath], output :: FilePath
-                     , kval, mincount, maxcount :: Int
+                     , kval, readlength, mincount, maxcount :: Int
                      , diploid, stats :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
-             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool, kval :: Int }
+             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool
+                     , kval, readlength :: Int }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
                          , sqrt_transform :: Bool
@@ -64,6 +65,7 @@ def_hist :: Options
 def_hist = Hist { -- kval = 0 &= help "k-mer size to use"
                   output = "-" &= help "output file name" &= typFile
                 , kval = 0 &= help "k-mer size to reduce to"
+                , readlength = 100 &= help "average sequence length (default 100)" &= name "l"
                 , mincount = 0 &= help "minimum count to include"
                 , maxcount = 0 &= help "maximum count to include"
                 , complexity_classes = 0 &= help "number of categories for k-mer complexity (entropy)" &= name "c"
@@ -146,6 +148,7 @@ def_reseq = Reseq { indices = [] &= typFile
 def_stats :: Options
 def_stats = Stats { output =  "" &= typFile &= help "Output file"
                   , kval = 0 &= help "k-mer size for statistics (0 disables)"
+                  , readlength = 100 &= help "average sequence length (default 100)" &= name "l"
                   , histogram = "" &= args &= typFile
                   , diploid = False &= help "organism is diploid"
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]

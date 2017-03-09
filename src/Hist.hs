@@ -76,5 +76,5 @@ calcstats opts k cts = do
                                 _   ->"")
                 ++if diploid opts then " (diploid statistics)" else " (haploid statistics)"
           d = estimate (diploid opts) as
-          stats_out = showDist (Just k) (diploid opts) d as
+          stats_out = showDist (Just (k,readlength opts)) (diploid opts) d as
       return (hdr:stats_out)

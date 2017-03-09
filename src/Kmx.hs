@@ -202,8 +202,8 @@ genstats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
   let d = estimate (diploid opts) h
-      k = if kval opts == 0 then Nothing else Just (kval opts)
-  mapM_ putStrLn (showDist k (diploid opts) d h)
+      mkl = if kval opts == 0 then Nothing else Just (kval opts,readlength opts)
+  mapM_ putStrLn (showDist mkl (diploid opts) d h)
   when (not . null $ output opts) $ do
     let go :: Histogram -> [Histogram] -> [String]
         go ((k,v):rest) kvs = format ((k,v):map head kvs) : go rest (map tail kvs)
