@@ -60,7 +60,8 @@ maximization diploid (Dist e' d' _ _ _ _) [he,hh,hd,hr] = Dist e d (tot he) (tot
         d  = if diploid then (dd*tot hd+2*dh*tot hh)/(tot hd+tot hh) -- avg of dip and hap
              else dd
         tot = sum . map snd
-        
+maximization _ _ _ = error "Internal error: maximization needs four histograms."
+
 -- calculate zero-truncated poisson distribution (naively), expensive for large x
 ztpoisson :: Double -> Int -> Double
 ztpoisson lam x = lam**fromIntegral x * exp(-lam)/( (1-exp(-lam)) * product [2..fromIntegral x])
@@ -88,7 +89,7 @@ lambda avg l0 = until' 0.0001 . iterate (\l -> avg*(1-exp(negate l))) $ l0
 -- output
 
 showDist :: Maybe (Int,Int) -> Bool -> Distribution -> Histogram -> [String]
-showDist mkl diploid d@(Dist le ld we wh wd wr) h =
+showDist mkl diploid d@(Dist le ld _we _wh _wd _wr) h =
   let hs = expectation d h
       [te,th,td,tr] = map total hs
       -- fit = undefined  -- pointwise diff h and hs
