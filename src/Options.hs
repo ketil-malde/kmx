@@ -164,6 +164,9 @@ checkopts opts@(Verify {})
 checkopts opts@(Correlate {})
   | length (indices opts) /= 2 = error "Correlate takes exactly two index files as parameters."
   | otherwise                  = opts
+checkopts opts@(Stats {})
+  | null (histogram opts)      = error "Please specify an input file."
+  | otherwise                  = opts
 checkopts opts = opts
 
 genOutput :: Options -> String -> IO ()
