@@ -80,6 +80,25 @@ po_ratio2 ls x = [prs k | k <- exps]
   where exps = [fromIntegral x*log l -l - log (1-exp(-l)) | l <- ls]
         prs k = 1/sum [exp (e-k) | e <- exps]
 
+-- ----------------------------------------------------------------------------
+-- add a dispersion factor alpha to the first (i.e. error) distribution
+-- errors are inflated by x^alpha, so 0 gives no dispersion, positive gives
+-- overdispersion (biased towards larger x), negative alpha gives underdispersion.
+
+expect_disp :: Double -> Distribution -> Histogram -> [Histogram]
+expect_disp alpha (Dist le ld we wh wd wr) = go [] [] [] []
+  where go errs haps dips reps ((x,v):xs) = let
+          [pe,ph,pd,pr] = normalize [we,wh,wd,wr] $ po_ratio_disp alpha [le,ld/2,ld,2*ld] (fromIntegral x)
+          normalize ps qs = let ns = zipWith (*) ps qs in map (/sum ns) ns
+          in go ((x,v*pe):errs) ((x,v*ph):haps) ((x,v*pd):dips) ((x,v*pr):reps) xs
+        go errs haps dips reps [] = [errs,haps,dips,reps]
+
+po_ratio_disp :: Double -> [Double] -> Int -> [Double]
+po_ratio_disp alpha ls x = [prs k | k <- exps]
+  where exps = case [fromIntegral x*log l -l - log (1-exp(-l)) | l <- ls] of
+                (e0:es) -> (e0+alpha*log (fromIntegral x):es)
+        prs k = 1/sum [exp (e-k) | e <- exps]
+
 -- estimate lambda from average of zero-truncated poisson data
 -- thanks: Simpson (2014), Bioinformatics 30:9
 lambda :: Double -> Double -> Double

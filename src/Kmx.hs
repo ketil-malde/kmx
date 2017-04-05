@@ -209,6 +209,6 @@ genstats opts = do
         go ((k,v):rest) kvs = format ((k,v):map head kvs) : go rest (map tail kvs)
         go [] _ = []
         format xs = (show . fst . head $ xs) ++ concat [printf "\t%.2f" w | (_,w) <- xs ]
-        ts = map sort (expectation d h) -- why are these always reversed?
+        ts = map sort (expect_disp (dispersion opts) d h) -- why are these always reversed?
     genOutput opts $ unlines $ go h ts
     return ()

@@ -16,6 +16,7 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
              | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool
+                     , dispersion :: Double
                      , kval, readlength :: Int }
              | Correlate { indices :: [FilePath]
                          , kval, mincount, maxcount :: Int
@@ -150,6 +151,7 @@ def_stats = Stats { output =  "" &= typFile &= help "Output file"
                   , kval = 0 &= help "k-mer size for statistics (0 disables)"
                   , readlength = 100 &= help "average sequence length (default 100)" &= name "l"
                   , histogram = "" &= args &= typFile
+                  , dispersion = 1 &= help "Factor for overdispersion of errors" &= name "D"
                   , diploid = False &= help "organism is diploid"
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]
 
