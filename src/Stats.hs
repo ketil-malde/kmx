@@ -20,7 +20,9 @@ readHistogram f = do
         _ -> my_error ""
         where my_error x = error ("Couldn't parse file '"++f++"' as a histogram.\nOffending line:\n"++B.unpack (B.take 72 l)++"\n"++x)
       noComment l = B.head l /= '#'
-  map parse1 `fmap` filter noComment `fmap` B.lines `fmap` B.readFile f
+      check xs | null xs = error ("Couldn't read histogram '"++f++"'- empty input file?")
+               | otherwise = xs
+  check `fmap` map parse1 `fmap` filter noComment `fmap` B.lines `fmap` B.readFile f
 
 estimate :: Bool -> Histogram -> Distribution
 estimate dip = until' . take 100 . calcStats dip
