@@ -185,16 +185,34 @@ reseq opts = do
   putStrLn "...done"
   ss <- concat `fmap` readSequenceData opts
   mapM_ (process (maxlen opts) k idx) ss
+  where
+    process m k idx (h,s) = let
+      ev = simpleeval simple_illumina s idx
+      in case initials (fromIntegral k) s of
+          Nothing -> return ()
+          Just is  -> do
+            putStr (">"++toString h++" ")
+            putStrLn $ showpath (fromIntegral k) $ head $ paths ev is m
 
-process m k idx (h,s) = let
-  ev = simpleeval simple_illumina s idx
-  in case initials (fromIntegral k) s of
-      Nothing -> return ()
-      Just is  -> do
-        putStr (">"++toString h++" ")
-        putStrLn $ showpath (fromIntegral k) $ head $ paths ev is m
+-- TODO: (maybe just: reseq --fast?)
+-- error correct - probably expensive in terms of memory if full distrs are read in
+-- better: pre calc histogram, then
+correct :: Options -> IO ()
+correct opts = do
+  -- first: build histogram/statistics, then set mincount (if not set: 98% error)
+  -- output: each haplotype (correcting errors), unified/wildcard, or pick 'least' haplotype
+  -- when in doubt, check hamming distances.
+  (k,vs) <- readIndex opts -- TODO: support multiple indices
+  putStrLn "Reading index..."
+  idx <- mk_judy k
+  mapM_ (uncurry (set_count idx)) vs
+  putStrLn "...done"
+  ss <- concat `fmap` readSequenceData opts
+  mapM_ (process (maxlen opts) k idx) ss
+  where
+    -- do..something.  indels? lower case?
+    process = undefined
 
--- Output histograms - print stats on stdout: file name, params, goodness of fit
 -- TODO: better format, run to convergence, calculate fit
 -- With output option: generate histograms for the estimated distributions
 genstats :: Options -> IO ()
@@ -202,7 +220,7 @@ genstats opts = do
   h <- readHistogram (histogram opts)
   -- mapM_ putStrLn $ map (\x -> showDist Nothing x h) (take 20 (calcStats h))
   let d = estimate (diploid opts) h
-      mkl = if kval opts == 0 then Nothing else Just (kval opts,readlength opts)
+      mkl = if kval opts == 0 then Nothing else Just (kval opts,readlength opts,dispersion opts)
   mapM_ putStrLn (showDist mkl (diploid opts) d h)
   when (not . null $ output opts) $ do
     let go :: Histogram -> [Histogram] -> [String]

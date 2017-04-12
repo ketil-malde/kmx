@@ -108,16 +108,15 @@ lambda avg l0 = until' 0.0001 . iterate (\l -> avg*(1-exp(negate l))) $ l0
   where until' eps xs = if abs (xs!!0-xs!!1) < eps then xs!!1 else until' eps (drop 1 xs)
 
 -- output
-
-showDist :: Maybe (Int,Int) -> Bool -> Distribution -> Histogram -> [String]
+showDist :: Maybe (Int,Int,Double) -> Bool -> Distribution -> Histogram -> [String]
 showDist mkl diploid d@(Dist le ld _we _wh _wd _wr) h =
-  let hs = expectation d h
+  let hs = case mkl of Just (_,_,a) -> expect_disp a d h
+                       _            -> expectation d h
       [te,th,td,tr] = map total hs
-      -- fit = undefined  -- pointwise diff h and hs
-  -- todo: really take into account read lenght and k-mer size
+  -- todo: check that size calcs make sense
   in (if diploid then printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM dip: %.0fM rep: %.0fM" le ld (te/1e6) (th/1e6) (td/1e6) (tr/1e6)
       else printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM rep: %.0fM" le ld (te/1e6) (td/1e6) (tr/1e6))
-     : case mkl of Just (k,l) -> [concat [ printf "Genome size: %d, " (round ((th+td+tr)/ld*fromIntegral (l-k+1)/fromIntegral l)::Int) -- multiply by (l-k+1)/l
+     : case mkl of Just (k,l,_) -> [concat [ printf "Genome size: %d, " (round ((th+td+tr)/ld*fromIntegral (l-k+1)/fromIntegral l)::Int) -- multiply by (l-k+1)/l
                                    , printf "Error rate: %.4f, " (te/(te+th+td+tr)/fromIntegral k)
                                    , if diploid then printf "Heterozygosity: %.4f, "(th/(th+td)/fromIntegral k) else ""-- divide by k to get actual rate
                                    , printf "Repeats: %.4f." (tr/(th+td+tr))
