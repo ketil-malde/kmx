@@ -27,9 +27,9 @@ mk_vector :: Int -> IO FreqCount
 mk_vector l = do
   -- putStrLn ("Init vector "++show l)
   v <- V.replicate (2^l) (0::Int)
-  let ac k = do { x <- readv v k; V.write v (fromIntegral k) $! x+1 }
-      gc k = readv v k
-      sc k x = V.write v (fromIntegral k) x -- or unsafe?
+  let ac k = if k<2^l then do { x <- readv v k; V.write v (fromIntegral k) $! x+1 } else return ()
+      gc k = if k<2^l then readv v k else return 0
+      sc k x = if k<2^l then V.write v (fromIntegral k) x else return () -- or unsafe?
       ks = go 0 where go i = if i >= 2^l then return []
                              else do 
                                x <- readv v i
