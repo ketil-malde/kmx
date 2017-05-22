@@ -1,0 +1,16 @@
+fcbc4d811e575829ff9ef012a32f98ea  test_tmp.d/250K.5
+d37cc292843cf3ce784b82d747bfd284  test_tmp.d/30.dump100
+f8a2f10604b8987f84987d14e01b1fc9  test_tmp.d/32.dump100
+ab80e598411ed876508206ab23c0151b  test_tmp.d/32.dump.3-30
+b77906d2f4b9616752e9908962130c76  test_tmp.d/32.dump.3-9
+8f39634fee27082fad6cef4b590fe4f9  test_tmp.d/32.hist
+14b6269aec942a3ef525ecda3d38894c  test_tmp.d/32-to-28.hist
+7c923885b1661be5c43e7f3ce2a965b7  test_tmp.d/classify.20.out
+fd3aeada8331c4688761c41642d7172b  test_tmp.d/classify.32-20.out
+cd599880639b388c31f4c3341026ad45  test_tmp.d/classify.out
+71dce9b33e13c43e61a260b599728b92  test_tmp.d/index.20
+883c7e5fb416a57cad0651e2353e2c94  test_tmp.d/index.32
+0e0301b5526227afd4ad3b4481dfb168  test_tmp.d/index.32-0
+67afcbcb8ed8f148542e1ebab31168c5  test_tmp.d/index.32-1
+883c7e5fb416a57cad0651e2353e2c94  test_tmp.d/index.32-merged
+7fa88ff82ff24b6602d217c4d05c7ba0  test_tmp.d/md5sums
