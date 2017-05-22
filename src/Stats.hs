@@ -112,13 +112,21 @@ showDist :: Maybe (Int,Int,Double) -> Bool -> Distribution -> Histogram -> [Stri
 showDist mkl diploid d@(Dist le ld _we _wh _wd _wr) h =
   let hs = case mkl of Just (_,_,a) -> expect_disp a d h
                        _            -> expectation d h
-      [te,th,td,tr] = map total hs
+      [te,th,td,tr] = map total hs -- number of k-mers in data assigned to each category
   -- todo: check that size calcs make sense
   in (if diploid then printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM dip: %.0fM rep: %.0fM" le ld (te/1e6) (th/1e6) (td/1e6) (tr/1e6)
       else printf "Dist: lambda_e=%.5f, lambda_d=%.4f, errs: %.0fM hap: %.0fM rep: %.0fM" le ld (te/1e6) (td/1e6) (tr/1e6))
-     : case mkl of Just (k,l,_) -> [concat [ printf "Genome size: %d, " (round ((th+td+tr)/ld*fromIntegral (l-k+1)/fromIntegral l)::Int) -- multiply by (l-k+1)/l
-                                   , printf "Error rate: %.4f, " (te/(te+th+td+tr)/fromIntegral k)
-                                   , if diploid then printf "Heterozygosity: %.4f, "(th/(th+td)/fromIntegral k) else ""-- divide by k to get actual rate
-                                   , printf "Repeats: %.4f." (tr/(th+td+tr))
-                                   ]]
+     : case mkl of Just (k,l,_) -> [concat [
+                                       -- ld is k-mer coverage, don't adjust for base coverage
+                                       printf "Genome size: %d, " (round ((th+td+tr)/ld)::Int) 
+                                       -- Each (single nucleotide) error gives k-1 erroneous kmers
+                                       , printf "Error rate: %.4f, " (te/(te+th+td+tr)/(fromIntegral k-1))
+                                         -- Het: divide by k to get actual rate, assuming each SNP gives rise to k-1 k-mers in th
+                                         -- Surely also divide by two?  (each variant gives two sets of k-1 k-mers)
+                                       , if diploid then printf "Heterozygosity: %.4f, "(th/(th+td)/(fromIntegral k-1)) else ""
+                                         -- repeats are considered continuous (significantly longer than k)
+                                       , printf "Repeats: %.4f, " (tr/(th+td+tr))
+                                         -- Waterman adjusted
+                                       , printf "Base coverage: %.2f." (ld*fromIntegral (l-k+1)/fromIntegral l)
+                                       ]]
                    Nothing -> []
