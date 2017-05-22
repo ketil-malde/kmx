@@ -23,7 +23,7 @@ hist opts = do
 mkcount :: Options -> IO FreqCount
 mkcount opts = do
       (_k,kvs) <- readIndex opts
-      cts <- mk_judy 16
+      cts <- mk_intmap 22
       mapM_ (add_count cts . fromIntegral . snd) kvs
       return cts
 
@@ -45,7 +45,7 @@ hist_with_stats opts = do
 hist_with_complexity :: Options -> IO ()
 hist_with_complexity opts = do
       (k,kvs) <- readIndex opts
-      counters <- replicateM (complexity_classes opts) (mk_judy 16)
+      counters <- replicateM (complexity_classes opts) (mk_intmap 16)
       let sel_counter (x:xs@(_:_)) e = if e <= 0.0 then x else sel_counter xs (e-step)
           sel_counter [x] _ = x
           sel_counter [] _ = error "empty input to sel_counter"

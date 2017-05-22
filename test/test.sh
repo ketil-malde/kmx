@@ -72,4 +72,6 @@ $KMX classify --file=test/250K-reads.fastq $DIR/index.20 -o $DIR/classify.20.out
 # tests for correlate, heatmap?
 # check md5sums
 
+md5sum -c test/md5sums
+
 log "Test run completed - $(date)"

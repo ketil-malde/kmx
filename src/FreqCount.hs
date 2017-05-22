@@ -1,4 +1,4 @@
-module FreqCount where
+module FreqCount (FreqCount(..),mk_intmap,mk_vector) where
 
 import qualified Data.Judy as J
 import qualified Data.Vector.Unboxed.Mutable as V

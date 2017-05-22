@@ -1,7 +1,7 @@
 module Main where
 
 import Options (Options(..), getArgs, genOutputBS, genOutput)
-import FreqCount (mk_judy, FreqCount(..))
+import FreqCount (mk_intmap, FreqCount(..))
 import Serialize (toByteString, readIndex, readIndices, getmagic, unpackPairs, packPairs, addmagic)
 import Kmers (kmers_rc, unkmer, initials)
 import Filter
@@ -43,7 +43,7 @@ count :: Options -> IO ()
 count opts = do
   s <- concat `fmap` readSequenceData opts
   let kmer_seq = kmers_rc (kval opts)
-  freqs <- mk_judy (2*fromIntegral (kval opts))
+  freqs <- mk_intmap (2*fromIntegral (kval opts))
   let kms = case filter_bits opts of
              0 -> concatMap (kmer_seq . snd) s
              _ -> Filter.runfilter opts (concatMap (kmer_seq . snd) s)
@@ -145,7 +145,7 @@ classify :: Options -> IO ()
 classify opts = do
   -- read index into a Judy array (mincount=2 might be a good idea?)
   (k,vs) <- readIndex opts
-  idx <- mk_judy k
+  idx <- mk_intmap k
   mapM_ (uncurry (set_count idx)) vs
 
   -- output: median (quantiles), average, or full list
@@ -180,7 +180,7 @@ reseq :: Options -> IO ()
 reseq opts = do
   (k,vs) <- readIndex opts -- TODO: support multiple indices
   putStrLn "Reading index..."
-  idx <- mk_judy k
+  idx <- mk_intmap k
   mapM_ (uncurry (set_count idx)) vs
   putStrLn "...done"
   ss <- concat `fmap` readSequenceData opts
@@ -204,7 +204,7 @@ correct opts = do
   -- when in doubt, check hamming distances.
   (k,vs) <- readIndex opts -- TODO: support multiple indices
   putStrLn "Reading index..."
-  idx <- mk_judy k
+  idx <- mk_intmap k
   mapM_ (uncurry (set_count idx)) vs
   putStrLn "...done"
   ss <- concat `fmap` readSequenceData opts
