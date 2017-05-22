@@ -33,7 +33,7 @@ estimate dip = until' . take 100 . calcStats dip
 
 calcStats :: Bool -> Histogram -> [Distribution]
 calcStats diploid hist = let
-  start = Dist (lambda (average (take 4 hist)) 1) (lambda (average (drop 4 hist)) 2) 0.45 (if diploid then 0.05 else 0.00) 0.45 0.05 -- 0.00 for haploid
+  start = Dist (lambda (average (take 1 hist)) 1) (lambda (average (drop 1 hist)) 2) 0.45 (if diploid then 0.05 else 0.00) 0.45 0.05 -- 0.00 for haploid
   step d = maximization diploid d (expectation d hist)
   in iterate step start
 
