@@ -1,14 +1,17 @@
 module FreqCount where
 
 import qualified Data.Judy as J
-import Data.Vector.Unboxed.Mutable as V
+import qualified Data.Vector.Unboxed.Mutable as V
+
+import qualified Data.IntMap.Strict as M
+import Data.IORef
 import Data.Maybe (fromMaybe)
 -- import Data.Bits
 -- import Data.HashTable.IO as H
 import Data.Word
 import System.IO.Unsafe
 
-readv :: Unbox a => IOVector a -> Word -> IO a
+readv :: V.Unbox a => V.IOVector a -> Word -> IO a
 readv v = V.unsafeRead v . fromIntegral -- use this for speed
 -- readv v = V.read v . fromIntegral        -- use this for safety
 
@@ -48,6 +51,24 @@ mk_vector l = do
   return $ FreqCount { key_bits = l
                     , add_count = ac, get_count = gc, set_count = sc
                     , keys = ks, counts = es, assocs = as }
+
+-- This is about three times slower than Judy (test.sh running in 12 mins vs 4 mins)
+mk_intmap :: Int -> IO FreqCount
+mk_intmap l = do
+  m <- newIORef (M.empty :: M.IntMap Int)
+  let conv_in  x = (fromIntegral x - 2^63)
+      conv_out x = (fromIntegral x + 2^63)
+      ac k   = modifyIORef' m (M.insertWith (+) (conv_in k) 1)
+      sc k v = modifyIORef' m (M.insert (conv_in k) v)
+      gc k   = fromMaybe 0 `fmap` M.lookup (conv_out k) `fmap` readIORef m
+      es = M.elems  `fmap` readIORef m
+      ks = map conv_out `fmap` M.keys     `fmap` readIORef m
+      as = map (\(k,v) -> (conv_out k,v)) `fmap` M.toList `fmap` readIORef m
+
+  return $ FreqCount { key_bits = l
+                     , add_count = ac, get_count = gc, set_count = sc
+                     , keys = ks, counts = es, assocs = as
+                     }
 
 mk_judy :: Int -> IO FreqCount
 mk_judy l = do
