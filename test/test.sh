@@ -32,8 +32,8 @@ $KMX hist $DIR/index.32 > $DIR/32.hist
 $KMX hist -k 28 $DIR/index.32 > $DIR/32-to-28.hist
 
 log "Testing stats"
-$KMX stats $DIR/32.hist
-$KMX stats $DIR/32-to-28.hist
+$KMX stats --haploid $DIR/32.hist
+$KMX stats --haploid $DIR/32-to-28.hist
 
 # Test merge functionality
 log "Testing partial builds and merge"

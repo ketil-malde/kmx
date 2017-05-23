@@ -12,10 +12,10 @@ data Options = Count { kval :: Int, fasta :: Bool
                      , files :: [FilePath], output :: FilePath }
              | Hist  { indices :: [FilePath], output :: FilePath
                      , kval, readlength, mincount, maxcount :: Int
-                     , diploid, stats :: Bool
+                     , diploid, haploid, stats :: Bool
                      , complexity_classes, complexity_mersize :: Int
                      }
-             | Stats { output :: FilePath, histogram :: FilePath, diploid :: Bool
+             | Stats { output :: FilePath, histogram :: FilePath, diploid, haploid :: Bool
                      , dispersion :: Double
                      , kval, readlength :: Int }
              | Correlate { indices :: [FilePath]
@@ -72,6 +72,7 @@ def_hist = Hist { -- kval = 0 &= help "k-mer size to use"
                 , complexity_classes = 0 &= help "number of categories for k-mer complexity (entropy)" &= name "c"
                 , complexity_mersize = 1 &= help "mersize to calculate complexity for"                 &= name "m"
                 , diploid = False &= help "calculate statistics for diploid organism"
+                , haploid = False &= help "calculate statistics for diploid organism"
                 , stats   = False &= help "calculate statistics (may use more memory)"                 &= name "s"
                 , indices = [] &= typFile &= args
                 }
@@ -153,6 +154,7 @@ def_stats = Stats { output =  "" &= typFile &= help "Output file"
                   , histogram = "" &= args &= typFile
                   , dispersion = 1 &= help "Factor for overdispersion of errors" &= name "D"
                   , diploid = False &= help "organism is diploid"
+                  , haploid = False &= help "calculate statistics for diploid organism"
                   } &= details ["Read histograms and estimate k-mer distribution parameters"]
 
 getArgs :: IO Options
@@ -168,6 +170,8 @@ checkopts opts@(Correlate {})
   | otherwise                  = opts
 checkopts opts@(Stats {})
   | null (histogram opts)      = error "Please specify an input file."
+  | haploid opts && diploid opts =  error "Please specify only one of --haploid or --diploid."
+  | not (haploid opts) && not (diploid opts) = error "Please specify either --haploid or --diploid."
   | otherwise                  = opts
 checkopts opts = opts
 
